@@ -1,0 +1,134 @@
+{
+  "CTk": {
+    "fg_color": ["#EBEBEC", "#060608"]
+  },
+  "CTkToplevel": {
+    "fg_color": ["#EBEBEC", "#060608"]
+  },
+  "CTkFrame": {
+    "corner_radius": 8,
+    "border_width": 0,
+    "fg_color": ["#D4D5D6", "#0E0E14"],
+    "top_fg_color": ["#C3C4C5", "#14141E"],
+    "border_color": ["#949A9F", "#2A2A3D"]
+  },
+  "CTkButton": {
+    "corner_radius": 6,
+    "border_width": 0,
+    "fg_color": ["#3B8ED0", "#00E5FF"],
+    "hover_color": ["#36719F", "#00B3CC"],
+    "border_color": ["#3B8ED0", "#00E5FF"],
+    "text_color": ["#DCE4EE", "#060608"],
+    "text_color_disabled": ["#89898B", "#4A4A5A"]
+  },
+  "CTkCheckBox": {
+    "corner_radius": 6,
+    "border_width": 2,
+    "fg_color": ["#3B8ED0", "#00E5FF"],
+    "border_color": ["#949A9F", "#2A2A3D"],
+    "hover_color": ["#3B8ED0", "#00B3CC"],
+    "checkmark_color": ["#DCE4EE", "#060608"],
+    "text_color": ["gray10", "#A0A0B0"],
+    "text_color_disabled": ["gray60", "gray45"]
+  },
+  "CTkEntry": {
+    "corner_radius": 6,
+    "border_width": 2,
+    "fg_color": ["#F9F9FA", "#12121A"],
+    "border_color": ["#979DA2", "#2A2A3D"],
+    "text_color": ["gray10", "#E0E0FF"],
+    "placeholder_text_color": ["gray52", "#4A4A5A"]
+  },
+  "CTkTextbox": {
+    "corner_radius": 6,
+    "border_width": 2,
+    "fg_color": ["#F9F9FA", "#12121A"],
+    "border_color": ["#979DA2", "#2A2A3D"],
+    "text_color": ["gray10", "#E0E0FF"],
+    "scrollbar_button_color": ["gray55", "#2A2A3D"],
+    "scrollbar_button_hover_color": ["gray40", "#00E5FF"]
+  },
+  "CTkComboBox": {
+    "corner_radius": 6,
+    "border_width": 2,
+    "fg_color": ["#F9F9FA", "#12121A"],
+    "border_color": ["#979DA2", "#2A2A3D"],
+    "button_color": ["#979DA2", "#2A2A3D"],
+    "button_hover_color": ["#6E7174", "#00E5FF"],
+    "text_color": ["gray10", "#E0E0FF"],
+    "text_color_disabled": ["gray50", "gray45"]
+  },
+  "CTkProgressBar": {
+    "corner_radius": 6,
+    "border_width": 0,
+    "fg_color": ["#939AA2", "#14141E"],
+    "progress_color": ["#3A7EBF", "#00E5FF"],
+    "border_color": ["gray", "gray"]
+  },
+  "CTkSlider": {
+    "corner_radius": 1000,
+    "button_corner_radius": 1000,
+    "border_width": 6,
+    "button_length": 0,
+    "fg_color": ["#939AA2", "#14141E"],
+    "progress_color": ["gray40", "gray65"],
+    "button_color": ["#3B8ED0", "#00E5FF"],
+    "button_hover_color": ["#36719F", "#00B3CC"]
+  },
+  "CTkLabel": {
+    "corner_radius": 0,
+    "fg_color": "transparent",
+    "text_color": ["gray10", "#A0A0B0"]
+  },
+  "DropdownMenu": {
+    "fg_color": ["gray90", "#12121A"],
+    "hover_color": ["gray75", "#2A2A3D"],
+    "text_color": ["gray10", "#E0E0FF"]
+  },
+  "CTkScrollbar": {
+    "corner_radius": 1000,
+    "border_spacing": 4,
+    "fg_color": "transparent",
+    "button_color": ["gray55", "#2A2A3D"],
+    "button_hover_color": ["gray40", "#00E5FF"]
+  },
+  "CTkScrollableFrame": {
+    "label_fg_color": ["gray78", "gray23"]
+  },
+  "CTkOptionMenu": {
+    "corner_radius": 6,
+    "border_width": 2,
+    "fg_color": ["#F9F9FA", "#12121A"],
+    "button_color": ["#979DA2", "#2A2A3D"],
+    "button_hover_color": ["#6E7174", "#00E5FF"],
+    "text_color": ["gray10", "#E0E0FF"],
+    "text_color_disabled": ["gray50", "gray45"]
+  },
+  "CTkSwitch": {
+    "corner_radius": 1000,
+    "border_width": 3,
+    "button_length": 0,
+    "fg_color": ["#939AA2", "#14141E"],
+    "progress_color": ["#3A7EBF", "#00E5FF"],
+    "button_color": ["gray55", "#E0E0FF"],
+    "button_hover_color": ["gray40", "#FFFFFF"],
+    "text_color": ["gray10", "#A0A0B0"],
+    "text_color_disabled": ["gray60", "gray45"]
+  },
+  "CTkSegmentedButton": {
+    "corner_radius": 6,
+    "border_width": 2,
+    "fg_color": ["#F9F9FA", "#12121A"],
+    "selected_color": ["#3B8ED0", "#00E5FF"],
+    "selected_hover_color": ["#36719F", "#00B3CC"],
+    "unselected_color": ["#F9F9FA", "#12121A"],
+    "unselected_hover_color": ["gray75", "#2A2A3D"],
+    "text_color": ["gray10", "#E0E0FF"],
+    "text_color_disabled": ["gray50", "gray45"]
+  },
+  "CTkFont": {
+    "family": "Consolas",
+    "size": 13,
+    "weight": "normal"
+  }
+}

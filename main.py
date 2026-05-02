@@ -94,7 +94,7 @@ class App(ctk.CTk):
         self.title("🎙️ Nullpk Content Automation")
         self.geometry("1100x950")
         ctk.set_appearance_mode("dark")
-        ctk.set_default_color_theme("blue")
+        ctk.set_default_color_theme("cyberpunk.json")
 
         self.config = load_config()
         self.stop_event = threading.Event()
@@ -120,22 +120,66 @@ class App(ctk.CTk):
         logging.info("Logging configured. Application started.")
 
     def _create_widgets(self):
-        main_frame = ctk.CTkFrame(self, fg_color="transparent")
-        main_frame.pack(fill="both", expand=True, padx=10, pady=10)
+        # Configure layout (1 row x 2 cols)
+        self.grid_rowconfigure(0, weight=1)
+        self.grid_columnconfigure(1, weight=1)
 
-        tabs = ctk.CTkTabview(main_frame)
-        tabs.pack(fill="both", expand=True)
+        # Build Sidebar
+        self.sidebar_frame = ctk.CTkFrame(self, width=200, corner_radius=0, fg_color="#0A0A0E")
+        self.sidebar_frame.grid(row=0, column=0, sticky="nsew")
+        self.sidebar_frame.grid_rowconfigure(6, weight=1)
+        
+        self.logo_label = ctk.CTkLabel(self.sidebar_frame, text="⚡ NULLPK V4", font=ctk.CTkFont(family="Consolas", size=22, weight="bold"), text_color="#00E5FF")
+        self.logo_label.grid(row=0, column=0, padx=20, pady=(30, 40))
+        
+        self.sidebar_buttons = {}
+        for i, name in enumerate(["Main", "Settings", "Publish", "History", "About"]):
+            btn = ctk.CTkButton(self.sidebar_frame, corner_radius=8, height=45, border_spacing=15, 
+                                text=f"■ {name}", font=ctk.CTkFont(family="Consolas", size=14, weight="bold"),
+                                fg_color="transparent", text_color="#8F8F99", 
+                                hover_color="#181824", anchor="w",
+                                command=lambda n=name: self.select_frame_by_name(n))
+            btn.grid(row=i+1, column=0, sticky="ew", padx=10, pady=5)
+            self.sidebar_buttons[name] = btn
 
-        self.main_tab = tabs.add("Main")
-        self.settings_tab = tabs.add("Settings")
-        self.publish_tab = tabs.add("Publish")
-        self.history_tab = tabs.add("History")
-        self.about_tab = tabs.add("About")
+        # Main Content Frame
+        self.main_content_frame = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
+        self.main_content_frame.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
+        self.main_content_frame.grid_rowconfigure(0, weight=1)
+        self.main_content_frame.grid_columnconfigure(0, weight=1)
+
+        # Content frames instead of tabs
+        self.main_tab = ctk.CTkFrame(self.main_content_frame, fg_color="transparent")
+        self.settings_tab = ctk.CTkFrame(self.main_content_frame, fg_color="transparent")
+        self.publish_tab = ctk.CTkFrame(self.main_content_frame, fg_color="transparent")
+        self.history_tab = ctk.CTkFrame(self.main_content_frame, fg_color="transparent")
+        self.about_tab = ctk.CTkFrame(self.main_content_frame, fg_color="transparent")
+
+        self.frames = {
+            "Main": self.main_tab,
+            "Settings": self.settings_tab,
+            "Publish": self.publish_tab,
+            "History": self.history_tab,
+            "About": self.about_tab
+        }
 
         self._create_main_tab_widgets()
         self._create_settings_tab_widgets()
         self._create_publish_tab_widgets()
         self._create_about_tab_widgets()
+
+        self.select_frame_by_name("Main")
+
+    def select_frame_by_name(self, name):
+        for btn_name, btn in self.sidebar_buttons.items():
+            btn.configure(fg_color="#181824" if btn_name == name else "transparent",
+                          text_color="#00E5FF" if btn_name == name else "#8F8F99")
+                
+        for frame_name, frame in self.frames.items():
+            if frame_name == name:
+                frame.grid(row=0, column=0, sticky="nsew")
+            else:
+                frame.grid_forget()
 
     def _create_main_tab_widgets(self):
         self.main_tab.columnconfigure((0, 1), weight=1)
@@ -151,6 +195,9 @@ class App(ctk.CTk):
         ctk.CTkLabel(controls_frame, text="Content Style:", font=("Arial", 12)).pack(pady=(15, 5))
         self.content_style_combo = ctk.CTkComboBox(controls_frame, values=CONTENT_STYLES, width=300, command=self.update_features_based_on_style)
         self.content_style_combo.pack(pady=5)
+        ctk.CTkLabel(controls_frame, text="Video Aspect Ratio:", font=("Arial", 12)).pack(pady=(10, 5))
+        self.main_aspect_ratio_combo = ctk.CTkComboBox(controls_frame, values=["16:9 (Horizontal)", "9:16 (Vertical)", "1:1 (Square)"], width=300)
+        self.main_aspect_ratio_combo.pack(pady=5)
         
         checkbox_frame = ctk.CTkFrame(controls_frame, fg_color="transparent")
         checkbox_frame.pack(pady=20, padx=20, fill="x")
@@ -183,31 +230,56 @@ class App(ctk.CTk):
         self.thumbnail_checkbox = ctk.CTkCheckBox(checkbox_frame, text="Generate Thumbnail", variable=self.generate_thumbnail_var)
         self.thumbnail_checkbox.pack(anchor="w", pady=4)
 
-        self.generate_timed_images_var = ctk.BooleanVar()
-        self.timed_images_checkbox = ctk.CTkCheckBox(checkbox_frame, text="Generate Timed Images", variable=self.generate_timed_images_var)
-        self.timed_images_checkbox.pack(anchor="w", pady=4)
+        # --- Background Mode Selector ---
+        bg_mode_frame = ctk.CTkFrame(controls_frame, fg_color="transparent")
+        bg_mode_frame.pack(pady=(5, 0), padx=20, fill="x")
+        ctk.CTkLabel(bg_mode_frame, text="Background Mode:", font=("Arial", 12)).pack(anchor="w")
+        self.bg_mode_var = ctk.StringVar(value="AI Video")
+        bg_seg = ctk.CTkSegmentedButton(
+            bg_mode_frame,
+            values=["AI Video", "Image Slideshow", "Disabled"],
+            variable=self.bg_mode_var,
+            command=self._on_bg_mode_change,
+            fg_color="#1a1a2e",
+            selected_color="#00E5FF",
+            selected_hover_color="#00B3CC",
+            unselected_color="#2a2a3e",
+            text_color="#0A0A0A",
+            unselected_hover_color="#3a3a4e",
+        )
+        bg_seg.pack(fill="x", pady=(4, 0))
 
-        self.slideshow_var = ctk.BooleanVar()
-        self.slideshow_checkbox = ctk.CTkCheckBox(checkbox_frame, text="Use Timed Images as Slideshow", variable=self.slideshow_var)
-        self.slideshow_checkbox.pack(anchor="w", pady=4)
+        # --- Image Count / Video Count row ---
+        count_frame = ctk.CTkFrame(controls_frame, fg_color="transparent")
+        count_frame.pack(pady=(8, 0), padx=20, fill="x")
+        count_frame.columnconfigure((0,1,2,3), weight=1)
 
-        self.run_button = ctk.CTkButton(controls_frame, text="🚀 Run Pipeline", command=self.start_pipeline_thread, font=("Arial", 16, "bold"), fg_color="#1f6aa5")
-        self.run_button.pack(pady=20, ipady=5)
-        self.stop_button = ctk.CTkButton(controls_frame, text="⏹️ Stop Pipeline", command=self.stop_pipeline, font=("Arial", 16, "bold"), fg_color="#c42034", hover_color="#851622", state="disabled")
-        self.stop_button.pack(pady=10, ipady=5)
+        ctk.CTkLabel(count_frame, text="Images:", font=("Arial", 11)).grid(row=0, column=0, sticky="w")
+        self.image_count_entry = ctk.CTkEntry(count_frame, width=60, placeholder_text="8")
+        self.image_count_entry.grid(row=0, column=1, sticky="w", padx=(2, 12))
+
+        self.video_count_label = ctk.CTkLabel(count_frame, text="Video Clips:", font=("Arial", 11))
+        self.video_count_label.grid(row=0, column=2, sticky="w")
+        self.video_count_entry = ctk.CTkEntry(count_frame, width=60, placeholder_text="1")
+        self.video_count_entry.grid(row=0, column=3, sticky="w", padx=(2, 0))
+
+        self.run_button = ctk.CTkButton(controls_frame, text="⚡ INITIALIZE SEQUENCE", command=self.start_pipeline_thread, font=ctk.CTkFont(family="Consolas", size=16, weight="bold"), fg_color="#00E5FF", text_color="#0A0A0A", hover_color="#00B3CC", corner_radius=6)
+        self.run_button.pack(pady=20, ipady=5, fill="x", padx=40)
+        self.stop_button = ctk.CTkButton(controls_frame, text="🛑 ABORT PROTOCOL", command=self.stop_pipeline, font=ctk.CTkFont(family="Consolas", size=16, weight="bold"), fg_color="#FF0044", text_color="#FFFFFF", hover_color="#CC0036", state="disabled", corner_radius=6)
+        self.stop_button.pack(pady=10, ipady=5, fill="x", padx=40)
         
         log_frame = ctk.CTkFrame(self.main_tab)
         log_frame.grid(row=0, column=1, padx=10, pady=10, sticky="nsew")
         log_frame.rowconfigure(len(PIPELINE_STEPS) + 1, weight=1)
         log_frame.columnconfigure(0, weight=1)
-        ctk.CTkLabel(log_frame, text="Progress Log", font=("Arial", 16, "bold")).grid(row=0, column=0, padx=10, pady=(10, 5), sticky="w")
+        ctk.CTkLabel(log_frame, text="[ SYSTEM PROGRESS ]", font=ctk.CTkFont(family="Consolas", size=16, weight="bold"), text_color="#00E5FF").grid(row=0, column=0, padx=10, pady=(10, 5), sticky="w")
         for i, step_name in enumerate(PIPELINE_STEPS):
             row = ctk.CTkFrame(log_frame, fg_color="transparent")
             row.grid(row=i + 1, column=0, sticky="ew", padx=10, pady=2)
             row.columnconfigure(0, weight=1)
-            ctk.CTkLabel(row, text=step_name, anchor="w", width=250).pack(side="left", padx=5)
+            ctk.CTkLabel(row, text=step_name, anchor="w", width=250, font=ctk.CTkFont(family="Consolas", size=12)).pack(side="left", padx=5)
             status_label = ctk.CTkLabel(row, text="⬜", width=60); status_label.pack(side="right", padx=5)
-            progress_bar = ctk.CTkProgressBar(row, orientation="horizontal", width=200); progress_bar.set(0); progress_bar.pack(side="right", padx=5)
+            progress_bar = ctk.CTkProgressBar(row, orientation="horizontal", width=200, progress_color="#00E5FF"); progress_bar.set(0); progress_bar.pack(side="right", padx=5)
             self.step_status_labels.append(status_label)
             self.progress_bars.append(progress_bar)
         self.log_box = ctk.CTkTextbox(log_frame, state="disabled")
@@ -221,36 +293,74 @@ class App(ctk.CTk):
         api_tab.columnconfigure(1, weight=1)
         ctk.CTkLabel(api_tab, text="Video Engine").grid(row=0, column=0, sticky="w", padx=10, pady=8)
         self.video_engine_combo = ctk.CTkComboBox(api_tab, values=["WaveSpeed AI", "Vertex AI (Veo)"], width=300); self.video_engine_combo.grid(row=0, column=1, columnspan=2, sticky="w", padx=10)
+        
         ctk.CTkLabel(api_tab, text="Image Engine").grid(row=1, column=0, sticky="w", padx=10, pady=8)
-        self.image_engine_combo = ctk.CTkComboBox(api_tab, values=["Gemini API", "Vertex AI"], width=300); self.image_engine_combo.grid(row=1, column=1, columnspan=2, sticky="w", padx=10)
-        ctk.CTkLabel(api_tab, text="Gemini API Key").grid(row=2, column=0, sticky="w", padx=10, pady=8)
-        self.gemini_key_entry = ctk.CTkEntry(api_tab, width=400, show="*"); self.gemini_key_entry.grid(row=2, column=1, padx=10, sticky="ew")
-        ctk.CTkButton(api_tab, text="Check Quota", command=self.open_quota_page).grid(row=2, column=2, padx=10, sticky="w")
-        ctk.CTkLabel(api_tab, text="WaveSpeed AI Key").grid(row=3, column=0, sticky="w", padx=10, pady=8)
-        self.wavespeed_key_entry = ctk.CTkEntry(api_tab, width=400, show="*"); self.wavespeed_key_entry.grid(row=3, column=1, columnspan=2, padx=10, sticky="ew")
-        ctk.CTkLabel(api_tab, text="Google Cloud Project ID").grid(row=4, column=0, sticky="w", padx=10, pady=8)
-        self.gcp_project_entry = ctk.CTkEntry(api_tab, width=400); self.gcp_project_entry.grid(row=4, column=1, columnspan=2, padx=10, sticky="ew")
-        ctk.CTkLabel(api_tab, text="Google Cloud Location").grid(row=5, column=0, sticky="w", padx=10, pady=8)
-        self.gcp_location_entry = ctk.CTkEntry(api_tab, width=400); self.gcp_location_entry.grid(row=5, column=1, columnspan=2, padx=10, sticky="ew")
-        ctk.CTkLabel(api_tab, text="News API Key").grid(row=6, column=0, sticky="w", padx=10, pady=8)
-        self.news_api_key_entry = ctk.CTkEntry(api_tab, width=400, show="*"); self.news_api_key_entry.grid(row=6, column=1, columnspan=2, padx=10, sticky="ew")
+        self.image_engine_combo = ctk.CTkComboBox(api_tab, values=["Gemini API", "WaveSpeed AI"], width=300); self.image_engine_combo.grid(row=1, column=1, columnspan=2, sticky="w", padx=10)
+        
+        ctk.CTkLabel(api_tab, text="Audio Engine").grid(row=2, column=0, sticky="w", padx=10, pady=8)
+        self.audio_engine_combo = ctk.CTkComboBox(api_tab, values=["Gemini API", "WaveSpeed AI"], width=300); self.audio_engine_combo.grid(row=2, column=1, columnspan=2, sticky="w", padx=10)
+        
+        ctk.CTkLabel(api_tab, text="WaveSpeed Video Model").grid(row=3, column=0, sticky="w", padx=10, pady=8)
+        self.ws_video_model_combo = ctk.CTkComboBox(api_tab, values=[
+            "wavespeed-ai/ltx-2.3-text-to-video",
+            "wavespeed-ai/ltx-2-19b-text-to-video",
+            "wavespeed-ai/wan-2.2-t2v-720p",
+            "wavespeed-ai/wan-2.2-t2v-480p",
+            "wavespeed-ai/wan-2.1-t2v-720p",
+            "wavespeed-ai/hunyuan-video-t2v",
+        ], width=300); self.ws_video_model_combo.grid(row=3, column=1, columnspan=2, sticky="w", padx=10)
+
+        ctk.CTkLabel(api_tab, text="WaveSpeed Image Model").grid(row=4, column=0, sticky="w", padx=10, pady=8)
+        self.ws_image_model_combo = ctk.CTkComboBox(api_tab, values=["wavespeed-ai/flux-dev", "wavespeed-ai/flux-schnell"], width=300); self.ws_image_model_combo.grid(row=4, column=1, columnspan=2, sticky="w", padx=10)
+
+        ctk.CTkLabel(api_tab, text="WaveSpeed Audio Model").grid(row=5, column=0, sticky="w", padx=10, pady=8)
+        self.ws_audio_model_combo = ctk.CTkComboBox(api_tab, values=["elevenlabs/text-to-speech", "playht/play3.0-mini"], width=300); self.ws_audio_model_combo.grid(row=5, column=1, columnspan=2, sticky="w", padx=10)
+
+        ctk.CTkLabel(api_tab, text="Gemini API Key").grid(row=6, column=0, sticky="w", padx=10, pady=8)
+        self.gemini_key_entry = ctk.CTkEntry(api_tab, width=400, show="*"); self.gemini_key_entry.grid(row=6, column=1, padx=10, sticky="ew")
+        ctk.CTkButton(api_tab, text="🛜 Check Connection", command=self.check_api_connection).grid(row=6, column=2, padx=10, sticky="w")
+        
+        ctk.CTkLabel(api_tab, text="WaveSpeed AI Key").grid(row=7, column=0, sticky="w", padx=10, pady=8)
+        self.wavespeed_key_entry = ctk.CTkEntry(api_tab, width=400, show="*"); self.wavespeed_key_entry.grid(row=7, column=1, columnspan=2, padx=10, sticky="ew")
+        
+        ctk.CTkLabel(api_tab, text="News API Key").grid(row=8, column=0, sticky="w", padx=10, pady=8)
+        self.news_api_key_entry = ctk.CTkEntry(api_tab, width=400, show="*"); self.news_api_key_entry.grid(row=8, column=1, columnspan=2, padx=10, sticky="ew")
+
+        ctk.CTkLabel(api_tab, text="Text Engine").grid(row=9, column=0, sticky="w", padx=10, pady=8)
+        self.text_engine_combo = ctk.CTkComboBox(api_tab, values=["Gemini API", "WaveSpeed AI", "Ollama"], width=300); self.text_engine_combo.grid(row=9, column=1, columnspan=2, sticky="w", padx=10)
+        
+        ctk.CTkLabel(api_tab, text="WaveSpeed Text Model").grid(row=10, column=0, sticky="w", padx=10, pady=8)
+        self.ws_text_model_combo = ctk.CTkComboBox(api_tab, values=[
+            "meta-llama/llama-3.3-70b-instruct",
+            "meta-llama/llama-3.1-8b-instruct",
+            "deepseek/deepseek-r1",
+            "google/gemini-2.0-flash",
+            "mistralai/mistral-large",
+        ], width=300); self.ws_text_model_combo.grid(row=10, column=1, columnspan=2, sticky="w", padx=10)
+        
+        ctk.CTkLabel(api_tab, text="Ollama Base URL").grid(row=11, column=0, sticky="w", padx=10, pady=8)
+        self.ollama_base_url_entry = ctk.CTkEntry(api_tab, width=400); self.ollama_base_url_entry.grid(row=11, column=1, columnspan=2, padx=10, sticky="ew")
+        
+        ctk.CTkLabel(api_tab, text="Ollama Model").grid(row=12, column=0, sticky="w", padx=10, pady=8)
+        self.ollama_model_entry = ctk.CTkEntry(api_tab, width=400); self.ollama_model_entry.grid(row=12, column=1, columnspan=2, padx=10, sticky="ew")
+
         voice_list = [f"{v} — {d}" for v, d in VOICE_OPTIONS.items()]
-        ctk.CTkLabel(persona_tab, text="TTS Mode").grid(row=0, column=0, sticky="w", padx=10, pady=8)
-        self.tts_mode_combo = ctk.CTkComboBox(persona_tab, values=["Multi-Speaker", "Single-Speaker"], width=300); self.tts_mode_combo.grid(row=0, column=1, padx=10)
-        ctk.CTkLabel(persona_tab, text="Single-Speaker Voice").grid(row=1, column=0, sticky="w", padx=10, pady=8)
-        self.voice_combo = ctk.CTkComboBox(persona_tab, values=voice_list, width=400); self.voice_combo.grid(row=1, column=1, padx=10)
-        ctk.CTkLabel(persona_tab, text="Speaker 1 (Host Voice)").grid(row=2, column=0, sticky="w", padx=10, pady=8)
-        self.speaker1_combo = ctk.CTkComboBox(persona_tab, values=voice_list, width=400); self.speaker1_combo.grid(row=2, column=1, padx=10)
-        ctk.CTkLabel(persona_tab, text="Speaker 2 (Guest Voice)").grid(row=3, column=0, sticky="w", padx=10, pady=8)
-        self.speaker2_combo = ctk.CTkComboBox(persona_tab, values=voice_list, width=400); self.speaker2_combo.grid(row=3, column=1, padx=10)
-        ctk.CTkLabel(persona_tab, text="Host Name").grid(row=4, column=0, sticky="w", padx=10, pady=8)
-        self.host_entry = ctk.CTkEntry(persona_tab, width=300); self.host_entry.grid(row=4, column=1, padx=10)
-        ctk.CTkLabel(persona_tab, text="Guest Name").grid(row=5, column=0, sticky="w", padx=10, pady=8)
-        self.guest_entry = ctk.CTkEntry(persona_tab, width=300); self.guest_entry.grid(row=5, column=1, padx=10)
-        ctk.CTkLabel(persona_tab, text="Host Persona").grid(row=6, column=0, sticky="nw", padx=10, pady=8)
-        self.host_persona_entry = ctk.CTkTextbox(persona_tab, width=400, height=80); self.host_persona_entry.grid(row=6, column=1, padx=10)
-        ctk.CTkLabel(persona_tab, text="Guest Persona").grid(row=7, column=0, sticky="nw", padx=10, pady=8)
-        self.guest_persona_entry = ctk.CTkTextbox(persona_tab, width=400, height=80); self.guest_persona_entry.grid(row=7, column=1, padx=10)
+        ctk.CTkLabel(persona_tab, text="Single-Speaker Voice").grid(row=0, column=0, sticky="w", padx=10, pady=8)
+        self.voice_combo = ctk.CTkComboBox(persona_tab, values=voice_list, width=400); self.voice_combo.grid(row=0, column=1, padx=10)
+        ctk.CTkLabel(persona_tab, text="Speaker 1 (Host Voice)").grid(row=1, column=0, sticky="w", padx=10, pady=8)
+        self.speaker1_combo = ctk.CTkComboBox(persona_tab, values=voice_list, width=400); self.speaker1_combo.grid(row=1, column=1, padx=10)
+        ctk.CTkLabel(persona_tab, text="Speaker 2 (Guest Voice)").grid(row=2, column=0, sticky="w", padx=10, pady=8)
+        self.speaker2_combo = ctk.CTkComboBox(persona_tab, values=voice_list, width=400); self.speaker2_combo.grid(row=2, column=1, padx=10)
+        self.host_name_label = ctk.CTkLabel(persona_tab, text="Host Name")
+        self.host_name_label.grid(row=3, column=0, sticky="w", padx=10, pady=8)
+        self.host_entry = ctk.CTkEntry(persona_tab, width=300); self.host_entry.grid(row=3, column=1, padx=10)
+        ctk.CTkLabel(persona_tab, text="Guest Name").grid(row=4, column=0, sticky="w", padx=10, pady=8)
+        self.guest_entry = ctk.CTkEntry(persona_tab, width=300); self.guest_entry.grid(row=4, column=1, padx=10)
+        self.host_persona_label = ctk.CTkLabel(persona_tab, text="Host Persona")
+        self.host_persona_label.grid(row=5, column=0, sticky="nw", padx=10, pady=8)
+        self.host_persona_entry = ctk.CTkTextbox(persona_tab, width=400, height=80); self.host_persona_entry.grid(row=5, column=1, padx=10)
+        ctk.CTkLabel(persona_tab, text="Guest Persona").grid(row=6, column=0, sticky="nw", padx=10, pady=8)
+        self.guest_persona_entry = ctk.CTkTextbox(persona_tab, width=400, height=80); self.guest_persona_entry.grid(row=6, column=1, padx=10)
         ctk.CTkLabel(advanced_tab, text="Channel Name").grid(row=0, column=0, sticky="w", padx=10, pady=5)
         self.channel_entry = ctk.CTkEntry(advanced_tab, width=300); self.channel_entry.grid(row=0, column=1, padx=10, sticky="w")
         ctk.CTkLabel(advanced_tab, text="Subscribe Reminder Count").grid(row=1, column=0, sticky="w", padx=10, pady=5)
@@ -268,7 +378,7 @@ class App(ctk.CTk):
         ctk.CTkLabel(advanced_tab, text="Image Prompt Template").grid(row=7, column=0, sticky="nw", padx=10, pady=5)
         self.image_style_textbox = ctk.CTkTextbox(advanced_tab, width=400, height=80); self.image_style_textbox.grid(row=7, column=1, padx=10, sticky="w")
         ctk.CTkLabel(advanced_tab, text="Image Interval (s)").grid(row=10, column=0, sticky="w", padx=10, pady=5)
-        self.image_interval_entry = ctk.CTkEntry(advanced_tab, width=100); self.image_interval_entry.grid(row=10, column=1, padx=10, sticky="w")
+        self.image_interval_entry = ctk.CTkEntry(advanced_tab, width=100, placeholder_text="0 for Auto"); self.image_interval_entry.grid(row=10, column=1, padx=10, sticky="w")
         self.language_enabled_var = ctk.BooleanVar()
         ctk.CTkCheckBox(advanced_tab, text="Enable Language Selection", variable=self.language_enabled_var).grid(row=11, column=0, columnspan=2, pady=5, padx=10, sticky="w")
         ctk.CTkLabel(advanced_tab, text="Podcast Language").grid(row=12, column=0, sticky="w", padx=10, pady=5)
@@ -296,11 +406,11 @@ class App(ctk.CTk):
         
         ctk.CTkLabel(self.publish_tab, text="Video File:").grid(row=5, column=0, sticky="w", padx=10, pady=5)
         self.video_path_entry = ctk.CTkEntry(self.publish_tab, placeholder_text="Leave blank to use generated video"); self.video_path_entry.grid(row=5, column=1, sticky="ew", padx=10, pady=5)
-        ctk.CTkButton(self.publish_tab, text="Browse...", command=lambda: self.browse_file(self.video_path_entry)).grid(row=5, column=2, sticky="w", padx=10, pady=5)
+        ctk.CTkButton(self.publish_tab, text="📂 Browse...", command=lambda: self.browse_file(self.video_path_entry)).grid(row=5, column=2, sticky="w", padx=10, pady=5)
         
         ctk.CTkLabel(self.publish_tab, text="Thumbnail:").grid(row=6, column=0, sticky="w", padx=10, pady=5)
         self.thumbnail_path_entry = ctk.CTkEntry(self.publish_tab, placeholder_text="Leave blank to use generated thumbnail"); self.thumbnail_path_entry.grid(row=6, column=1, sticky="ew", padx=10, pady=5)
-        ctk.CTkButton(self.publish_tab, text="Browse...", command=lambda: self.browse_file(self.thumbnail_path_entry)).grid(row=6, column=2, sticky="w", padx=10, pady=5)
+        ctk.CTkButton(self.publish_tab, text="📂 Browse...", command=lambda: self.browse_file(self.thumbnail_path_entry)).grid(row=6, column=2, sticky="w", padx=10, pady=5)
         
         self.upload_status_label = ctk.CTkLabel(self.publish_tab, text="", font=("Arial", 12))
         self.upload_status_label.grid(row=7, column=0, columnspan=3, pady=(10,0), padx=20, sticky="ew")
@@ -310,9 +420,9 @@ class App(ctk.CTk):
 
         upload_frame = ctk.CTkFrame(self.publish_tab, fg_color="transparent")
         upload_frame.grid(row=9, column=0, columnspan=3, pady=10)
-        self.youtube_upload_button = ctk.CTkButton(upload_frame, text="Upload to YouTube", command=self.start_youtube_upload_thread, fg_color="#FF0000", hover_color="#8c0303")
+        self.youtube_upload_button = ctk.CTkButton(upload_frame, text="▶️ Upload to YouTube", command=self.start_youtube_upload_thread, fg_color="#FF0044", hover_color="#CC0036")
         self.youtube_upload_button.pack(side="left", padx=10)
-        self.facebook_upload_button = ctk.CTkButton(upload_frame, text="Upload to Facebook", command=lambda: self.upload_facebook(), fg_color="#1877F2", hover_color="#1456b3")
+        self.facebook_upload_button = ctk.CTkButton(upload_frame, text="🔵 Upload to Facebook", command=lambda: self.upload_facebook(), fg_color="#00E5FF", text_color="#0A0A0A", hover_color="#00B3CC")
         self.facebook_upload_button.pack(side="left", padx=10)
         
         ctk.CTkLabel(self.publish_tab, text="--- API Credentials for Publishing ---", font=("Arial", 12, "bold")).grid(row=10, column=0, columnspan=3, pady=(20,5), padx=10, sticky="w")
@@ -324,36 +434,59 @@ class App(ctk.CTk):
         ctk.CTkLabel(self.about_tab, text="Version 3.2 (Slideshow Mode)", font=("Arial", 12)).pack(pady=5)
         ctk.CTkLabel(self.about_tab, text="Author: Naqash Afzal", font=("Arial", 12)).pack(pady=5)
         ctk.CTkLabel(self.about_tab, text="This tool automates the creation of YouTube videos using AI.", wraplength=500).pack(pady=20)
-        ctk.CTkButton(self.about_tab, text="Donate Now", command=lambda: webbrowser.open_new("https://nullpk.com/donate")).pack(pady=10)
+        ctk.CTkButton(self.about_tab, text="☕ Donate Now", command=lambda: webbrowser.open_new("https://nullpk.com/donate")).pack(pady=10)
     
-    def open_quota_page(self):
-        project_id = self.gcp_project_entry.get().strip()
-        if project_id:
-            url = f"https://console.cloud.google.com/iam-admin/quotas?project={project_id}"
-            logging.info(f"Opening quota page for project: {project_id}")
-            webbrowser.open_new(url)
-        else:
-            url = "https://console.cloud.google.com/apis/dashboard"
-            logging.warning("GCP Project ID not set. Opening generic API dashboard.")
-            messagebox.showinfo("GCP Project ID Missing", "Please enter your Google Cloud Project ID for a direct link.")
-            webbrowser.open_new(url)
+    def check_api_connection(self):
+        gemini_key = self.gemini_key_entry.get().strip()
+        if not gemini_key:
+            messagebox.showerror("Error", "Please enter a Gemini API Key to test.")
+            return
+        logging.info("Testing connection to Gemini servers...")
+        try:
+            import google.generativeai as genai
+            genai.configure(api_key=gemini_key)
+            model = genai.GenerativeModel("gemini-3-flash-preview")
+            resp = model.generate_content("Respond with exactly one word: 'CONNECTED'.")
+            messagebox.showinfo("Connection Successful", f"API Key is valid and active.\nResponse: {resp.text.strip()}")
+            logging.info("Gemini API connection test passed.")
+        except Exception as e:
+            logging.error(f"API Connection Failed: {e}")
+            messagebox.showerror("Connection Failed", f"Invalid API Key or network issue:\n{e}")
 
     def _extract_voice_name(self, val): return val.split(" — ")[0] if " — " in val else val
     
     def update_features_based_on_style(self, selected_style):
         is_podcast = selected_style == "Podcast"
         state = "normal" if is_podcast else "disabled"
+        single_state = "disabled" if is_podcast else "normal"
+        
         self.fact_check_checkbox.configure(state=state)
         self.style_combo.configure(state=state)
-        self.story_arc_combo.configure(state=state)
-        self.tts_mode_combo.configure(state=state)
+        self.story_arc_combo.configure(state="normal")
+        self.voice_combo.configure(state=single_state)
         self.speaker1_combo.configure(state=state)
         self.speaker2_combo.configure(state=state)
-        self.host_entry.configure(state=state)
+        
+        self.host_entry.configure(state="normal")
+        self.host_persona_entry.configure(state="normal")
+        self.host_name_label.configure(text="Host Name" if is_podcast else "Narrator Name")
+        self.host_persona_label.configure(text="Host Persona" if is_podcast else "Narrator Persona")
+        
         self.guest_entry.configure(state=state)
-        self.host_persona_entry.configure(state=state)
         self.guest_persona_entry.configure(state=state)
-    
+
+    def _on_bg_mode_change(self, mode):
+        """Show/hide count fields based on selected background mode."""
+        if mode == "AI Video":
+            self.image_count_entry.configure(state="disabled")
+            self.video_count_entry.configure(state="normal")
+        elif mode == "Image Slideshow":
+            self.image_count_entry.configure(state="normal")
+            self.video_count_entry.configure(state="disabled")
+        else:  # Disabled
+            self.image_count_entry.configure(state="disabled")
+            self.video_count_entry.configure(state="disabled")
+
     def update_status_callback(self, step_index, status, progress):
         if 0 <= step_index < len(self.progress_bars):
             self.progress_bars[step_index].set(progress)
@@ -435,21 +568,37 @@ class App(ctk.CTk):
         self.config["ADD_MUSIC"] = self.add_music_var.get()
         self.config["GENERATE_SNIPPETS"] = self.generate_snippets_var.get()
         self.config["GENERATE_THUMBNAIL"] = self.generate_thumbnail_var.get()
-        self.config["GENERATE_TIMED_IMAGES"] = self.generate_timed_images_var.get()
-        self.config["TIMED_IMAGES_AS_SLIDESHOW"] = self.slideshow_var.get()
         self.config["CONTENT_STYLE"] = self.content_style_combo.get()
+        # Background mode (replaces old GENERATE_TIMED_IMAGES + TIMED_IMAGES_AS_SLIDESHOW)
+        bg_mode = self.bg_mode_var.get()
+        self.config["BG_MODE"] = bg_mode
+        self.config["GENERATE_TIMED_IMAGES"] = bg_mode == "Image Slideshow"
+        self.config["TIMED_IMAGES_AS_SLIDESHOW"] = bg_mode == "Image Slideshow"
+        try:
+            self.config["IMAGE_COUNT"] = max(1, int(self.image_count_entry.get()))
+        except (ValueError, TypeError):
+            self.config["IMAGE_COUNT"] = 8
+        try:
+            self.config["VIDEO_CLIP_COUNT"] = max(1, int(self.video_count_entry.get()))
+        except (ValueError, TypeError):
+            self.config["VIDEO_CLIP_COUNT"] = 1
         
         # Settings Tab (API)
         self.config["GEMINI_API_KEY"] = self.gemini_key_entry.get().strip()
         self.config["WAVESPEED_AI_KEY"] = self.wavespeed_key_entry.get().strip()
-        self.config["GCP_PROJECT_ID"] = self.gcp_project_entry.get().strip()
-        self.config["GCP_LOCATION"] = self.gcp_location_entry.get().strip()
         self.config["NEWS_API_KEY"] = self.news_api_key_entry.get().strip()
         self.config["VIDEO_ENGINE"] = self.video_engine_combo.get()
         self.config["IMAGE_ENGINE"] = self.image_engine_combo.get()
+        self.config["AUDIO_ENGINE"] = self.audio_engine_combo.get()
+        self.config["TEXT_ENGINE"] = self.text_engine_combo.get()
+        self.config["OLLAMA_BASE_URL"] = self.ollama_base_url_entry.get().strip()
+        self.config["OLLAMA_MODEL"] = self.ollama_model_entry.get().strip()
+        self.config["WAVESPEED_IMAGE_MODEL"] = self.ws_image_model_combo.get()
+        self.config["WAVESPEED_VIDEO_MODEL"] = self.ws_video_model_combo.get()
+        self.config["WAVESPEED_AUDIO_MODEL"] = self.ws_audio_model_combo.get()
+        self.config["WAVESPEED_TEXT_MODEL"] = self.ws_text_model_combo.get()
 
         # Settings Tab (Personalization)
-        self.config["TTS_MODE"] = self.tts_mode_combo.get()
         self.config["VOICE_NAME"] = self._extract_voice_name(self.voice_combo.get())
         self.config["SPEAKER1"] = self._extract_voice_name(self.speaker1_combo.get())
         self.config["SPEAKER2"] = self._extract_voice_name(self.speaker2_combo.get())
@@ -462,13 +611,15 @@ class App(ctk.CTk):
         self.config["PODCAST_STYLE"] = self.style_combo.get()
         self.config["STORY_ARC"] = self.story_arc_combo.get()
         self.config["SCRIPT_LENGTH"] = self.script_length_combo.get()
-        self.config["VIDEO_ASPECT_RATIO"] = self.aspect_ratio_combo.get()
+        self.config["VIDEO_ASPECT_RATIO"] = self.main_aspect_ratio_combo.get()
+        # Keep settings tab combo in sync
+        self.aspect_ratio_combo.set(self.main_aspect_ratio_combo.get())
         self.config["LANGUAGE_ENABLED"] = self.language_enabled_var.get()
         self.config["PODCAST_LANGUAGE"] = self.language_combo.get()
         try: 
             self.config["IMAGE_GENERATION_INTERVAL"] = int(self.image_interval_entry.get())
         except (ValueError, TypeError): 
-            self.config["IMAGE_GENERATION_INTERVAL"] = 10
+            self.config["IMAGE_GENERATION_INTERVAL"] = 0
         
         self.config["VIDEO_PROMPT_BASE_STYLE"] = self.video_style_textbox.get("1.0", "end-1c").strip()
         self.config["IMAGE_PROMPT_STYLE"] = self.image_style_textbox.get("1.0", "end-1c").strip()
@@ -496,14 +647,11 @@ class App(ctk.CTk):
         cfg = self.config
         self.gemini_key_entry.insert(0, cfg.get("GEMINI_API_KEY", ""))
         self.wavespeed_key_entry.insert(0, cfg.get("WAVESPEED_AI_KEY", ""))
-        self.gcp_project_entry.insert(0, cfg.get("GCP_PROJECT_ID", ""))
-        self.gcp_location_entry.insert(0, cfg.get("GCP_LOCATION", "us-central1"))
         self.news_api_key_entry.insert(0, cfg.get("NEWS_API_KEY", ""))
         self.facebook_token_entry.insert(0, cfg.get("FACEBOOK_ACCESS_TOKEN", ""))
         self.speaker1_combo.set(f"{cfg['SPEAKER1']} — {VOICE_OPTIONS.get(cfg['SPEAKER1'], '')}")
         self.speaker2_combo.set(f"{cfg['SPEAKER2']} — {VOICE_OPTIONS.get(cfg['SPEAKER2'], '')}")
         self.voice_combo.set(f"{cfg.get('VOICE_NAME', 'Kore')} — {VOICE_OPTIONS.get(cfg.get('VOICE_NAME', 'Kore'), '')}")
-        self.tts_mode_combo.set(cfg.get("TTS_MODE", "Multi-Speaker"))
         self.host_entry.insert(0, cfg.get("HOST_NAME", "Alex"))
         self.guest_entry.insert(0, cfg.get("GUEST_NAME", "Maya"))
         self.host_persona_entry.insert("1.0", cfg.get("HOST_PERSONA", ""))
@@ -516,14 +664,24 @@ class App(ctk.CTk):
         self.story_arc_combo.set(cfg.get("STORY_ARC", "None"))
         self.video_style_textbox.insert("1.0", cfg.get("VIDEO_PROMPT_BASE_STYLE", "An animated and cinematic video. High-quality, 24fps."))
         self.image_style_textbox.insert("1.0", cfg.get("IMAGE_PROMPT_STYLE", "A cinematic, photorealistic image representing the podcast topic: {topic}"))
-        self.image_interval_entry.insert(0, str(cfg.get("IMAGE_GENERATION_INTERVAL", 10)))
+        self.image_interval_entry.insert(0, str(cfg.get("IMAGE_GENERATION_INTERVAL", 0)))
         self.language_enabled_var.set(cfg.get("LANGUAGE_ENABLED", False))
         self.language_combo.set(cfg.get("PODCAST_LANGUAGE", "English"))
         self.video_engine_combo.set(cfg.get("VIDEO_ENGINE", "WaveSpeed AI"))
         self.image_engine_combo.set(cfg.get("IMAGE_ENGINE", "Gemini API"))
+        self.audio_engine_combo.set(cfg.get("AUDIO_ENGINE", "Gemini API"))
+        self.text_engine_combo.set(cfg.get("TEXT_ENGINE", "Gemini API"))
+        self.ollama_base_url_entry.insert(0, cfg.get("OLLAMA_BASE_URL", "http://localhost:11434"))
+        self.ollama_model_entry.insert(0, cfg.get("OLLAMA_MODEL", "llama3"))
+        self.ws_text_model_combo.set(cfg.get("WAVESPEED_TEXT_MODEL", "meta-llama/llama-3.3-70b-instruct"))
+        self.ws_image_model_combo.set(cfg.get("WAVESPEED_IMAGE_MODEL", "wavespeed-ai/flux-dev"))
+        self.ws_video_model_combo.set(cfg.get("WAVESPEED_VIDEO_MODEL", "wavespeed-ai/ltx-2.3-text-to-video"))
+        self.ws_audio_model_combo.set(cfg.get("WAVESPEED_AUDIO_MODEL", "elevenlabs/text-to-speech"))
         self.content_style_combo.set(cfg.get("CONTENT_STYLE", "Podcast"))
         self.script_length_combo.set(cfg.get("SCRIPT_LENGTH", "Medium (~5 minutes)"))
-        self.aspect_ratio_combo.set(cfg.get("VIDEO_ASPECT_RATIO", "16:9 (Horizontal)"))
+        aspect = cfg.get("VIDEO_ASPECT_RATIO", "16:9 (Horizontal)")
+        self.aspect_ratio_combo.set(aspect)
+        self.main_aspect_ratio_combo.set(aspect)
         self.fact_check_var.set(cfg.get("FACT_CHECK_ENABLED", False))
         self.metadata_var.set(cfg.get("GENERATE_METADATA", False))
         self.timestamps_var.set(cfg.get("GENERATE_TIMESTAMPS", True))
@@ -531,12 +689,24 @@ class App(ctk.CTk):
         self.add_music_var.set(cfg.get("ADD_MUSIC", False))
         self.generate_snippets_var.set(cfg.get("GENERATE_SNIPPETS", False))
         self.generate_thumbnail_var.set(cfg.get("GENERATE_THUMBNAIL", False))
-        self.generate_timed_images_var.set(cfg.get("GENERATE_TIMED_IMAGES", False))
-        self.slideshow_var.set(cfg.get("TIMED_IMAGES_AS_SLIDESHOW", False))
+        # Restore background mode - derive from BG_MODE or fall back to old booleans
+        saved_mode = cfg.get("BG_MODE", "")
+        if not saved_mode:
+            if cfg.get("TIMED_IMAGES_AS_SLIDESHOW", False): saved_mode = "Image Slideshow"
+            elif cfg.get("GENERATE_TIMED_IMAGES", False): saved_mode = "Image Slideshow"
+            else: saved_mode = "AI Video"
+        self.bg_mode_var.set(saved_mode)
+        self._on_bg_mode_change(saved_mode)
+        # Restore counts
+        self.image_count_entry.delete(0, "end")
+        self.image_count_entry.insert(0, str(cfg.get("IMAGE_COUNT", 8)))
+        self.video_count_entry.delete(0, "end")
+        self.video_count_entry.insert(0, str(cfg.get("VIDEO_CLIP_COUNT", 1)))
         self.video_title_entry.insert(0, cfg.get("VIDEO_TITLE", ""))
         self.video_desc_entry.insert("1.0", cfg.get("VIDEO_DESCRIPTION", ""))
         self.video_tags_entry.insert(0, cfg.get("VIDEO_TAGS", ""))
         self.update_features_based_on_style(self.content_style_combo.get())
+
     
     def get_history_items(self):
         return [item for item in os.listdir('.') if os.path.isdir(item) and not item.startswith('.')]
@@ -565,7 +735,7 @@ class App(ctk.CTk):
         if not topic: messagebox.showerror("Error", "Please enter a topic first."); return
         logging.info("📄 Generating SEO metadata only...")
         try:
-            google_client = GoogleClient(self.config['GEMINI_API_KEY'], self.config.get("GCP_PROJECT_ID"), self.config.get("GCP_LOCATION"))
+            google_client = GoogleClient(self.config['GEMINI_API_KEY'])
             news_client = NewsApiClient(self.config.get("NEWS_API_KEY"))
             research = google_client.deep_research(topic, self.config.get("PODCAST_LANGUAGE", "English"), news_client)
             script = google_client.generate_podcast_script(topic, research, self.config) # Generate a dummy script for context

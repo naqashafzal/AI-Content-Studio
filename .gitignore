@@ -1,0 +1,81 @@
+# ====================
+# Python
+# ====================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+*.egg
+dist/
+build/
+.eggs/
+
+# ====================
+# Virtual Environment
+# ====================
+.venv/
+venv/
+env/
+ENV/
+
+# ====================
+# API Keys & Secrets
+# ====================
+config.json
+client_secrets.json
+token.pickle
+*.env
+.env
+
+# ====================
+# Generated Content Folders
+# (Each topic creates its own folder)
+# ====================
+*/podcast.wav
+*/podcast_with_music.mp3
+*/podcast_script.txt
+*/summary.txt
+*/captions.ass
+*/final_podcast_video.mp4
+*/final_podcast_video_captioned.mp4
+*/final_podcast_video_raw.mp4
+*/background.mp4
+*/background_*.mp4
+*/generated_image.png
+*/slideshow.txt
+*/segment_images/
+*/metadata.json
+*/timestamps.txt
+*/snippet_*.mp4
+
+# Ignore all generated topic folders (anything that isn't a known project file)
+# (Uncomment the lines below to ignore ALL subfolders entirely)
+# */
+
+# ====================
+# Temp / Test Files
+# ====================
+test_captions.py
+test_captions.ass
+test_captions2.ass
+test_caption_output.mp4
+test_caption_output2.mp4
+fix_captions.py
+scratch_wavespeed.py
+*.tmp
+
+# ====================
+# Logs & Debug
+# ====================
+*.log
+logs/
+
+# ====================
+# IDE / OS
+# ====================
+.vscode/
+.idea/
+*.DS_Store
+Thumbs.db
+desktop.ini

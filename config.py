@@ -44,11 +44,16 @@ def load_config():
     default_config = {
         "GEMINI_API_KEY": "",
         "WAVESPEED_AI_KEY": "",
-        "GCP_PROJECT_ID": "",
-        "GCP_LOCATION": "us-central1",
+        "WAVESPEED_IMAGE_MODEL": "black-forest-labs/flux-1.1-pro-ultra",
+        "WAVESPEED_VIDEO_MODEL": "wavespeed-ai/ltx-2.3-text-to-video",
+        "WAVESPEED_AUDIO_MODEL": "elevenlabs/text-to-speech",
         "NEWS_API_KEY": "",
         "VIDEO_ENGINE": "WaveSpeed AI",
         "IMAGE_ENGINE": "Gemini API",
+        "TEXT_ENGINE": "Gemini API",
+        "OLLAMA_BASE_URL": "http://localhost:11434",
+        "OLLAMA_MODEL": "llama3",
+        "WAVESPEED_TEXT_MODEL": "meta-llama/llama-3.3-70b-instruct",
         "SPEAKER1": "Kore",
         "SPEAKER2": "Puck",
         "HOST_NAME": "Alex",
@@ -70,6 +75,9 @@ def load_config():
         "GENERATE_THUMBNAIL": False,
         "GENERATE_TIMED_IMAGES": False,
         "GENERATE_TIMESTAMPS": True, # <-- NEW FEATURE FLAG
+        "BG_MODE": "AI Video",
+        "IMAGE_COUNT": 8,
+        "VIDEO_CLIP_COUNT": 1, # <-- NEW FEATURE FLAG
         "YOUTUBE_CLIENT_ID": "",
         "YOUTUBE_CLIENT_SECRET": "",
         "FACEBOOK_ACCESS_TOKEN": "",

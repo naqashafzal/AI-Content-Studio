@@ -94,7 +94,7 @@ def mix_audio_with_music(podcast_path, music_path, output_path, music_volume_db=
 
 def generate_captions(audio_file, captions_file, language: str):
     """Transcribes audio and generates a styled ASS caption file, returning word timestamps."""
-    logging.info("📝 Transcribing audio for captions (this may take a moment)...")
+    logging.info("Transcribing audio for captions (this may take a moment)...")
     try:
         model = whisper.load_model("base")
         result = model.transcribe(audio_file, word_timestamps=True, language=language)
@@ -103,21 +103,42 @@ def generate_captions(audio_file, captions_file, language: str):
         for segment in result.get("segments", []):
             all_word_timestamps.extend(segment.get("words", []))
 
+        logging.info(f"Whisper transcribed {len(all_word_timestamps)} words.")
+
         if captions_file:
             subs = pysubs2.SSAFile()
-            style = pysubs2.SSAStyle(fontname="Arial Black", fontsize=36, primarycolor=pysubs2.Color(255, 255, 0), outline=2)
+            style = pysubs2.SSAStyle(
+                fontname="Arial Black",
+                fontsize=46,
+                primarycolor=pysubs2.Color(255, 255, 0, 0),    # Yellow, fully opaque
+                outlinecolor=pysubs2.Color(0, 0, 0, 0),         # Black outline
+                backcolor=pysubs2.Color(0, 0, 0, 180),          # Semi-transparent shadow
+                bold=True,
+                outline=3,
+                shadow=1,
+                alignment=2,   # Bottom-center (SSA alignment 2)
+                marginv=40,
+                marginl=20,
+                marginr=20,
+            )
             subs.styles["Default"] = style
             for word in all_word_timestamps:
-                start_time = pysubs2.make_time(s=word['start'])
-                end_time = pysubs2.make_time(s=word['end'])
-                text = f"{{\\b1}}{word['word'].strip().upper()}{{\\b0}}"
-                subs.append(pysubs2.SSAEvent(start=start_time, end=end_time, text=text, style="Default"))
+                start_ms = int(word['start'] * 1000)
+                end_ms   = int(word['end']   * 1000)
+                text = word['word'].strip().upper()
+                if text:
+                    subs.append(pysubs2.SSAEvent(
+                        start=pysubs2.make_time(ms=start_ms),
+                        end=pysubs2.make_time(ms=end_ms),
+                        text=text,
+                        style="Default"
+                    ))
             subs.save(captions_file)
-            logging.info(f"✅ Captions generated successfully at {captions_file}")
+            logging.info(f"Captions file saved: {captions_file} ({len(subs)} events)")
             
         return all_word_timestamps
     except Exception as e:
-        logging.error(f"❌ Whisper transcription failed: {e}")
+        logging.error(f"Whisper transcription failed: {e}", exc_info=True)
         return []
 
 def sanitize_ffmpeg_path(path: str) -> str:
@@ -141,7 +162,7 @@ class Pipeline:
         self.update_seo = seo_callback
         self.on_finish = on_finish_callback
         self.update_timestamps = timestamps_callback # New callback
-        self.google_client = GoogleClient(config.get("GEMINI_API_KEY"), config.get("GCP_PROJECT_ID"), config.get("GCP_LOCATION"))
+        self.google_client = GoogleClient(config)
         self.wavespeed_client = WaveSpeedClient(config.get("WAVESPEED_AI_KEY"))
         self.news_client = NewsApiClient(config.get("NEWS_API_KEY"))
 
@@ -210,7 +231,11 @@ class Pipeline:
             generated_images_with_times = []
 
             # --- Research and Scripting ---
-            if "Deep Research" in steps_to_run: 
+            if "Deep Research" in steps_to_run and os.path.exists(summary_file):
+                logging.info(f"Skipping Deep Research, {summary_file} already exists.")
+                research = open(summary_file, "r", encoding="utf-8").read()
+                self.update_status(0, "☑️", 1.0)
+            elif "Deep Research" in steps_to_run: 
                 self.update_status(0, "⏳", 0.2); research = self.google_client.deep_research(topic, self.config.get("PODCAST_LANGUAGE"), self.news_client); open(summary_file, "w", encoding="utf-8").write(research); self.update_status(0, "✅", 1.0)
             elif os.path.exists(summary_file): 
                 research = open(summary_file, "r", encoding="utf-8").read(); self.update_status(0, "☑️", 1.0)
@@ -228,14 +253,21 @@ class Pipeline:
                     logging.info("Fact-checking is disabled. Skipping."); self.update_status(1, "⏭️", 1.0); self.update_status(2, "⏭️", 1.0)
             self._check_stop()
 
-            if "Podcast Script" in steps_to_run: 
+            if "Podcast Script" in steps_to_run and os.path.exists(script_file):
+                logging.info(f"Skipping Podcast Script, {script_file} already exists.")
+                script = open(script_file, "r", encoding="utf-8").read()
+                self.update_status(3, "☑️", 1.0)
+            elif "Podcast Script" in steps_to_run: 
                 self.update_status(3, "⏳", 0.2); script = self.google_client.generate_podcast_script(topic, research, self.config); open(script_file, "w", encoding="utf-8").write(script); self.update_status(3, "✅", 1.0)
             elif os.path.exists(script_file): 
                 script = open(script_file, "r", encoding="utf-8").read(); self.update_status(3, "☑️", 1.0)
             self._check_stop()
 
             # --- Visuals and Audio ---
-            if "Generate Thumbnail" in steps_to_run:
+            if "Generate Thumbnail" in steps_to_run and self.config.get("GENERATE_THUMBNAIL", False) and os.path.exists(image_file):
+                logging.info(f"Skipping Generate Thumbnail, {image_file} already exists.")
+                self.update_status(4, "☑️", 1.0)
+            elif "Generate Thumbnail" in steps_to_run:
                 if self.config.get("GENERATE_THUMBNAIL", False):
                     self.update_status(4, "⏳", 0.2); title_text = seo_title or topic
                     left_path, right_path = os.path.join(output_dir, "thumb_left.png"), os.path.join(output_dir, "thumb_right.png")
@@ -243,9 +275,15 @@ class Pipeline:
                         prompts = self.google_client.generate_thumbnail_prompts(topic, title_text)
                         logging.info(f"Character Prompt: {prompts['character_prompt']}")
                         logging.info(f"Text Prompt: {prompts['text_prompt']}")
-                        self.google_client.gemini_nanobanana_image(prompts['character_prompt'], left_path)
-                        self._check_stop()
-                        self.google_client.gemini_nanobanana_image(prompts['text_prompt'], right_path)
+                        image_engine = self.config.get("IMAGE_ENGINE", "Gemini API")
+                        if image_engine == "WaveSpeed AI":
+                            self.wavespeed_client.text_to_image(self.config.get("WAVESPEED_IMAGE_MODEL"), prompts['character_prompt'], left_path)
+                            self._check_stop()
+                            self.wavespeed_client.text_to_image(self.config.get("WAVESPEED_IMAGE_MODEL"), prompts['text_prompt'], right_path)
+                        else:
+                            self.google_client.gemini_nanobanana_image(prompts['character_prompt'], left_path)
+                            self._check_stop()
+                            self.google_client.gemini_nanobanana_image(prompts['text_prompt'], right_path)
                         self._check_stop()
                         ffmpeg_cmd = ["ffmpeg", "-y", "-i", left_path, "-i", right_path, "-filter_complex", "[0:v]scale=960:1080,setsar=1[left];[1:v]scale=960:1080,setsar=1[right];[left][right]hstack=inputs=2", image_file]
                         subprocess.run(ffmpeg_cmd, check=True, capture_output=True, text=True, encoding='utf-8')
@@ -258,8 +296,17 @@ class Pipeline:
 
             if "Analyze Tone" in steps_to_run: self.update_status(5, "✅", 1.0)
             
-            if "Audio (TTS)" in steps_to_run:
-                self.update_status(6, "⏳", 0.2); self.google_client.generate_tts(sanitize_for_tts(script), audio_file, self.config); audio_len = self._get_audio_length(audio_file); self.update_status(6, f"✅ {audio_len:.1f}s", 1.0)
+            if "Audio (TTS)" in steps_to_run and os.path.exists(audio_file):
+                logging.info(f"Skipping Audio (TTS), {audio_file} already exists.")
+                audio_len = self._get_audio_length(audio_file)
+                self.update_status(6, f"☑️ {audio_len:.1f}s", 1.0)
+            elif "Audio (TTS)" in steps_to_run:
+                self.update_status(6, "⏳", 0.2)
+                if self.config.get("AUDIO_ENGINE") == "WaveSpeed AI":
+                    self.wavespeed_client.text_to_speech(self.config.get("WAVESPEED_AUDIO_MODEL"), sanitize_for_tts(script), audio_file)
+                else:
+                    self.google_client.generate_tts(sanitize_for_tts(script), audio_file, self.config)
+                audio_len = self._get_audio_length(audio_file); self.update_status(6, f"✅ {audio_len:.1f}s", 1.0)
             elif os.path.exists(audio_file):
                 audio_len = self._get_audio_length(audio_file); self.update_status(6, f"☑️ {audio_len:.1f}s", 1.0)
             
@@ -267,52 +314,141 @@ class Pipeline:
             need_timed_images = "Generate Timed Images" in steps_to_run and self.config.get("GENERATE_TIMED_IMAGES", False)
             need_captions = "Create Final Video" in steps_to_run and self.config.get("CAPTION_ENABLED", False)
             need_timestamps = "Generate Timestamps" in steps_to_run and self.config.get("GENERATE_TIMESTAMPS", True)
+            need_video_timestamps = "Video Generation" in steps_to_run and self.config.get("BG_MODE", "AI Video") == "AI Video"
             
-            if (need_timed_images or need_captions or need_timestamps):
-                if not self.word_timestamps_for_images: # Only run if it hasn't been run
-                    self.word_timestamps_for_images = generate_captions(audio_file, captions_file if need_captions else None, self.config.get("PODCAST_LANGUAGE"))
+            logging.info(f"Caption state: CAPTION_ENABLED={self.config.get('CAPTION_ENABLED')} | need_captions={need_captions} | captions_file_exists={os.path.exists(captions_file)}")
+            
+            if (need_timed_images or need_captions or need_timestamps or need_video_timestamps):
+                if os.path.exists(audio_file):
+                    # Always regenerate the .ass file if captions are needed but the file is missing
+                    captions_missing = need_captions and not os.path.exists(captions_file)
+                    if not self.word_timestamps_for_images or captions_missing:
+                        # Whisper uses None for auto-detect or ISO codes like 'en', not full words like 'English'
+                        lang = self.config.get("PODCAST_LANGUAGE", "English")
+                        whisper_lang = None if lang.lower() in ("english", "auto", "") else lang
+                        logging.info(f"Running Whisper transcription. need_captions={need_captions}, captions_missing={captions_missing}, lang={whisper_lang}")
+                        self.word_timestamps_for_images = generate_captions(
+                            audio_file,
+                            captions_file if need_captions else None,
+                            whisper_lang
+                        )
+                    else:
+                        logging.info(f"Skipping Whisper - word_timestamps already loaded ({len(self.word_timestamps_for_images)} words). captions_missing={captions_missing}")
 
             if "Generate Timed Images" in steps_to_run:
                 if need_timed_images:
-                    self.update_status(7, "⏳", 0.2); image_interval, image_count = self.config.get("IMAGE_GENERATION_INTERVAL", 10), 0
+                    self.update_status(7, "⏳", 0.2)
+                    image_count_target = self.config.get("IMAGE_COUNT", 8)
+                    user_interval = self.config.get("IMAGE_GENERATION_INTERVAL", 0)
+                    
+                    if user_interval > 0:
+                        image_interval = user_interval
+                        image_count_target = int(audio_len / user_interval) + 1
+                    else:
+                        image_interval = max(1, int(audio_len / image_count_target)) if audio_len > 0 else 10
+                        
+                    image_count = 0
                     for i in range(0, int(audio_len), image_interval):
+                        if image_count >= image_count_target:
+                            break
                         segment_text = " ".join([w['word'] for w in self.word_timestamps_for_images if i <= w['start'] < i + image_interval])
                         if not segment_text.strip(): continue
                         image_count += 1; image_output_path = os.path.join(segment_images_dir, f"segment_{image_count:03d}.png")
-                        image_prompt = self.google_client.generate_image_prompt_for_segment(self.config.get("CONTENT_STYLE"), topic, segment_text)
-                        try: 
-                            self.google_client.gemini_nanobanana_image(image_prompt, image_output_path); generated_images_with_times.append((i, image_output_path))
+                        if os.path.exists(image_output_path):
+                            logging.info(f"Skipping image {image_count}, already exists.")
+                            generated_images_with_times.append((i, image_output_path))
+                            continue
+                        
+                        image_prompt = self.google_client.generate_image_prompt_for_segment(self.config.get("CONTENT_STYLE"), topic, segment_text, self.config.get("IMAGE_PROMPT_STYLE", ""))
+                        try:
+                            if self.config.get("IMAGE_ENGINE") == "WaveSpeed AI":
+                                self.wavespeed_client.text_to_image(self.config.get("WAVESPEED_IMAGE_MODEL"), image_prompt, image_output_path)
+                            else:
+                                self.google_client.gemini_nanobanana_image(image_prompt, image_output_path)
+                            generated_images_with_times.append((i, image_output_path))
                         except Exception as e: logging.error(f"Failed to generate image {image_count}: {e}")
                         self._wait()
                     self.update_status(7, f"✅ {image_count} images", 1.0)
-                else: 
+                else:
                     logging.info("Timed image generation is disabled. Skipping."); self.update_status(7, "⏭️", 1.0)
             self._check_stop()
             
-            if "Video Generation" in steps_to_run:
-                if not self.config.get("TIMED_IMAGES_AS_SLIDESHOW", False):
-                    self.update_status(8, "⏳", 0.2); aspect = self.config.get("VIDEO_ASPECT_RATIO"); prompt = self.google_client.generate_video_prompt(topic, research, self.config.get("VIDEO_PROMPT_BASE_STYLE"))
-                    try:
-                        if self.config.get("VIDEO_ENGINE") == "Vertex AI (Veo)": 
-                            self.google_client.vertex_ai_text_to_video(prompt, bg_video_file, "16:9" if aspect == "16:9 (Horizontal)" else "9:16")
-                        else: 
-                            self.wavespeed_client.text_to_video(prompt, bg_video_file, "832*480" if aspect == "16:9 (Horizontal)" else "480*832")
-                        self.update_status(8, "✅", 1.0)
-                    except Exception as e: 
-                        logging.error(f"Background video generation failed: {e}"); self.update_status(8, "❌", 1.0)
-                else: 
-                    self.update_status(8, "⏭️", 1.0)
+            bg_mode = self.config.get("BG_MODE", "AI Video")
+            if "Video Generation" in steps_to_run and bg_mode == "AI Video" and os.path.exists(bg_video_file):
+                logging.info(f"Skipping Video Generation, {bg_video_file} already exists.")
+                self.update_status(8, "☑️", 1.0)
+            elif "Video Generation" in steps_to_run:
+                if bg_mode == "AI Video":
+                    self.update_status(8, "⏳", 0.2)
+                    aspect = self.config.get("VIDEO_ASPECT_RATIO")
+                    content_style = self.config.get("CONTENT_STYLE", "Podcast")
+                    clip_count = max(1, self.config.get("VIDEO_CLIP_COUNT", 1))
+                    clip_paths = []
+                    video_interval = max(1, int(audio_len / clip_count)) if audio_len > 0 else 10
+                    for clip_idx in range(clip_count):
+                        start_t = clip_idx * video_interval
+                        end_t = start_t + video_interval
+                        if self.word_timestamps_for_images:
+                            segment_text = " ".join([w['word'] for w in self.word_timestamps_for_images if start_t <= w['start'] < end_t])
+                            if not segment_text.strip(): segment_text = script[:500] # Fallback
+                        else:
+                            segment_text = script[:500] # Fallback
+
+                        clip_path = bg_video_file.replace(".mp4", f"_clip{clip_idx+1}.mp4") if clip_count > 1 else bg_video_file
+                        if os.path.exists(clip_path):
+                            logging.info(f"Skipping video clip {clip_idx+1}, already exists.")
+                            clip_paths.append(clip_path)
+                            continue
+                            
+                        prompt = self.google_client.generate_video_prompt(topic, segment_text, self.config.get("VIDEO_PROMPT_BASE_STYLE"), content_style)
+                        try:
+                            if self.config.get("VIDEO_ENGINE") == "Vertex AI (Veo)":
+                                self.google_client.vertex_ai_text_to_video(prompt, clip_path, "16:9" if aspect == "16:9 (Horizontal)" else "9:16")
+                            else:
+                                self.wavespeed_client.text_to_video(self.config.get("WAVESPEED_VIDEO_MODEL"), prompt, clip_path, aspect)
+                            clip_paths.append(clip_path)
+                            logging.info(f"Video clip {clip_idx+1}/{clip_count} generated.")
+                        except Exception as e:
+                            logging.error(f"Video clip {clip_idx+1} failed: {e}")
+                        self._check_stop()
+                    # Concatenate clips if multiple
+                    if len(clip_paths) > 1:
+                        concat_txt = bg_video_file.replace(".mp4", "_concat.txt")
+                        with open(concat_txt, "w") as cf:
+                            for cp in clip_paths: cf.write(f"file '{os.path.abspath(cp)}'\n")
+                        subprocess.run(["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", concat_txt, "-c", "copy", bg_video_file], check=True, capture_output=True)
+                        logging.info(f"Concatenated {len(clip_paths)} clips into {bg_video_file}")
+                    elif len(clip_paths) == 1 and clip_paths[0] != bg_video_file:
+                        import shutil; shutil.move(clip_paths[0], bg_video_file)
+                    self.update_status(8, f"✅ {len(clip_paths)} clip(s)", 1.0) if clip_paths else self.update_status(8, "❌", 1.0)
+                else:
+                    logging.info(f"BG Mode is '{bg_mode}'. Skipping video generation."); self.update_status(8, "⏭️", 1.0)
             self._check_stop()
 
             final_audio = audio_file
-            if "Add Background Music" in steps_to_run:
+            if "Add Background Music" in steps_to_run and self.config.get("ADD_MUSIC", False) and os.path.exists(mixed_audio_file):
+                logging.info(f"Skipping Add Background Music, {mixed_audio_file} already exists.")
+                final_audio = mixed_audio_file
+                self.update_status(9, "☑️", 1.0)
+            elif "Add Background Music" in steps_to_run:
                 if self.config.get("ADD_MUSIC", False):
                     self.update_status(9, "⏳", 0.2); final_audio = mix_audio_with_music(audio_file, "assets/background_music.mp3", mixed_audio_file); self.update_status(9, "✅", 1.0)
                 else: 
                     self.update_status(9, "⏭️", 1.0)
+            elif self.config.get("ADD_MUSIC", False) and os.path.exists(mixed_audio_file):
+                final_audio = mixed_audio_file
+                self.update_status(9, "☑️", 1.0)
             self._check_stop()
 
-            if "Create Final Video" in steps_to_run:
+            if "Create Final Video" in steps_to_run and os.path.exists(final_video_file):
+                # If captions are enabled, force re-assembly so they get baked into the video
+                if need_captions and os.path.exists(captions_file):
+                    logging.info("Captions are enabled — re-assembling final video to bake in subtitles.")
+                    os.remove(final_video_file)
+                else:
+                    logging.info(f"Skipping Create Final Video, {final_video_file} already exists.")
+                    self.update_status(10, "☑️", 1.0)
+            if "Create Final Video" in steps_to_run and not os.path.exists(final_video_file):
                 self.update_status(10, "⏳", 0.2); output_size = "720x1280" if self.config.get("VIDEO_ASPECT_RATIO") == "9:16 (Vertical)" else "1280x720"
                 
                 inputs = []            
@@ -329,7 +465,7 @@ class Pipeline:
                             f.write(f"file '{os.path.abspath(img_path)}'\n"); f.write(f"duration {duration}\n")
                     
                     inputs.extend(["-f", "concat", "-safe", "0", "-i", concat_file_path])
-                    filter_segments.append(f"[{video_input_count}:v]scale={output_size}:force_original_aspect_ratio=decrease,pad={output_size}:(ow-iw)/2:(oh-ih)/2,setsar=1[v_out]")
+                    filter_segments.append(f"[{video_input_count}:v]scale={output_size}:force_original_aspect_ratio=decrease,pad={output_size.replace('x', ':')}:(ow-iw)/2:(oh-ih)/2,setsar=1[v_out]")
                     video_input_count += 1
                 
                 else:
@@ -361,14 +497,20 @@ class Pipeline:
                     filter_segments.append(base_filter_chain)
                     final_video_map_tag = last_video_output
 
-                if need_captions and os.path.exists(captions_file): 
-                    filter_segments.append(f"{final_video_map_tag}ass='{sanitize_ffmpeg_path(os.path.abspath(captions_file))}'[v_final]")
-                    final_video_map_tag = "[v_final]"
-                
+                if need_captions:
+                    if os.path.exists(captions_file):
+                        logging.info(f"Applying captions from: {captions_file}")
+                    else:
+                        logging.warning(f"⚠️ Captions are enabled but .ass file not found at '{captions_file}'. Subtitles will be skipped.")
+                        need_captions = False  # Disable so we skip the second pass
+
                 inputs.extend(["-i", final_audio])
                 
                 audio_map_index = video_input_count 
                 
+                # Determine intermediate or final output path
+                raw_video_file = final_video_file.replace(".mp4", "_raw.mp4") if need_captions else final_video_file
+
                 ffmpeg_cmd = ["ffmpeg", "-y", *inputs]
                 
                 if filter_segments: 
@@ -380,11 +522,30 @@ class Pipeline:
                     "-map", final_video_map_tag,
                     "-map", f"{audio_map_index}:a:0", 
                     "-c:v", "libx264", "-pix_fmt", "yuv420p",
-                    "-t", str(audio_len), final_video_file
+                    "-t", str(audio_len), raw_video_file
                 ])
                 
                 logging.debug(f"Executing FFMPEG command: {' '.join(ffmpeg_cmd)}")
                 subprocess.run(ffmpeg_cmd, check=True, capture_output=True, text=True, encoding='utf-8')
+
+                # Second pass: burn in subtitles using -vf subtitles= (more reliable than ass in filter_complex)
+                if need_captions and os.path.exists(raw_video_file):
+                    logging.info("🔤 Burning subtitles into video (second pass)...")
+                    # subtitles= filter needs Windows-style escaped path
+                    subs_path = os.path.abspath(captions_file).replace('\\', '/').replace(':', '\\:')
+                    caption_cmd = [
+                        "ffmpeg", "-y",
+                        "-i", raw_video_file,
+                        "-vf", f"subtitles='{subs_path}'",
+                        "-c:v", "libx264", "-pix_fmt", "yuv420p",
+                        "-c:a", "copy",
+                        final_video_file
+                    ]
+                    logging.debug(f"Caption burn command: {' '.join(caption_cmd)}")
+                    subprocess.run(caption_cmd, check=True, capture_output=True, text=True, encoding='utf-8')
+                    os.remove(raw_video_file)  # Clean up intermediate file
+                    logging.info("✅ Subtitles burned in successfully.")
+
                 self.update_status(10, "✅", 1.0)
             else:
                 self.update_status(10, "⏭️", 1.0)
@@ -466,7 +627,7 @@ class Pipeline:
 
         except (InterruptedError, FileNotFoundError) as e: logging.warning(str(e))
         except subprocess.CalledProcessError as e: 
-            logging.error(f"ffmpeg command failed with exit code {e.returncode}\nffmpeg stderr:\n{e.stderr.decode('utf-8', errors='ignore') if e.stderr else 'No stderr'}")
+            logging.error(f"ffmpeg command failed with exit code {e.returncode}\nffmpeg stderr:\n{e.stderr if e.stderr else 'No stderr'}")
             self.update_status_on_error()
         except Exception as e: 
             logging.error(f"Pipeline failed: {e}", exc_info=True)
