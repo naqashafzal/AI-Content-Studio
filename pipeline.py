@@ -92,7 +92,7 @@ def mix_audio_with_music(podcast_path, music_path, output_path, music_volume_db=
         logging.error(f"❌ Error mixing audio: {e}")
         return podcast_path
 
-def generate_captions(audio_file, captions_file, language: str):
+def generate_captions(audio_file, captions_file, language: str, style_opts: dict = None):
     """Transcribes audio and generates a styled ASS caption file, returning word timestamps."""
     logging.info("Transcribing audio for captions (this may take a moment)...")
     try:
@@ -106,20 +106,21 @@ def generate_captions(audio_file, captions_file, language: str):
         logging.info(f"Whisper transcribed {len(all_word_timestamps)} words.")
 
         if captions_file:
+            style_opts = style_opts or {}
             subs = pysubs2.SSAFile()
             style = pysubs2.SSAStyle(
-                fontname="Arial Black",
-                fontsize=46,
-                primarycolor=pysubs2.Color(255, 255, 0, 0),    # Yellow, fully opaque
-                outlinecolor=pysubs2.Color(0, 0, 0, 0),         # Black outline
-                backcolor=pysubs2.Color(0, 0, 0, 180),          # Semi-transparent shadow
-                bold=True,
-                outline=3,
-                shadow=1,
-                alignment=2,   # Bottom-center (SSA alignment 2)
-                marginv=40,
-                marginl=20,
-                marginr=20,
+                fontname=style_opts.get("fontname", "Arial Black"),
+                fontsize=style_opts.get("fontsize", 46),
+                primarycolor=style_opts.get("primarycolor", pysubs2.Color(255, 255, 0, 0)),    # Default Yellow
+                outlinecolor=style_opts.get("outlinecolor", pysubs2.Color(0, 0, 0, 0)),         # Default Black outline
+                backcolor=style_opts.get("backcolor", pysubs2.Color(0, 0, 0, 180)),             # Default Semi-transparent shadow
+                bold=style_opts.get("bold", True),
+                outline=style_opts.get("outline", 3),
+                shadow=style_opts.get("shadow", 1),
+                alignment=style_opts.get("alignment", 2),   # Bottom-center (SSA alignment 2)
+                marginv=style_opts.get("marginv", 40),
+                marginl=style_opts.get("marginl", 20),
+                marginr=style_opts.get("marginr", 20),
             )
             subs.styles["Default"] = style
             for word in all_word_timestamps:
@@ -155,13 +156,14 @@ def sanitize_ffmpeg_path(path: str) -> str:
 class Pipeline:
     """Orchestrates the entire content creation process."""
 
-    def __init__(self, config, stop_event, status_callback, seo_callback=None, on_finish_callback=None, timestamps_callback=None):
+    def __init__(self, config, stop_event, status_callback, seo_callback=None, on_finish_callback=None, timestamps_callback=None, on_script_generated=None):
         self.config = config
         self.stop_event = stop_event
         self.update_status = status_callback
         self.update_seo = seo_callback
         self.on_finish = on_finish_callback
         self.update_timestamps = timestamps_callback # New callback
+        self.on_script_generated = on_script_generated
         self.google_client = GoogleClient(config)
         self.wavespeed_client = WaveSpeedClient(config.get("WAVESPEED_AI_KEY"))
         self.news_client = NewsApiClient(config.get("NEWS_API_KEY"))
@@ -262,6 +264,17 @@ class Pipeline:
             elif os.path.exists(script_file): 
                 script = open(script_file, "r", encoding="utf-8").read(); self.update_status(3, "☑️", 1.0)
             self._check_stop()
+
+            # --- Pause for Script Review ---
+            if "Podcast Script" in steps_to_run and self.on_script_generated:
+                import threading
+                script_approved_event = threading.Event()
+                logging.info("Pausing pipeline for script review...")
+                self.on_script_generated(script, script_file, script_approved_event)
+                script_approved_event.wait()
+                self._check_stop()
+                # Reload script in case it was modified by the user
+                script = open(script_file, "r", encoding="utf-8").read()
 
             # --- Visuals and Audio ---
             if "Generate Thumbnail" in steps_to_run and self.config.get("GENERATE_THUMBNAIL", False) and os.path.exists(image_file):
@@ -456,17 +469,66 @@ class Pipeline:
                 video_input_count = 0  
                 final_video_map_tag = "[v_out]" 
                 
+                # Determine intermediate or final output path
+                raw_video_file = final_video_file.replace(".mp4", "_raw.mp4") if need_captions else final_video_file
+                skip_ffmpeg_first_pass = False
+
                 if self.config.get("TIMED_IMAGES_AS_SLIDESHOW", False) and generated_images_with_times:
-                    logging.info(f"Creating SLIDESHOW video with size {output_size}")
-                    concat_file_path = os.path.join(output_dir, "slideshow.txt")
-                    with open(concat_file_path, "w") as f:
+                    try:
+                        import moviepy.editor as mpy
+                        logging.info(f"Creating SLIDESHOW video with MoviePy (size {output_size})")
+                        target_w, target_h = map(int, output_size.split('x'))
+                        clips = []
                         for i, (timestamp, img_path) in enumerate(generated_images_with_times):
                             duration = (generated_images_with_times[i+1][0] - timestamp) if i + 1 < len(generated_images_with_times) else (audio_len - timestamp)
-                            f.write(f"file '{os.path.abspath(img_path)}'\n"); f.write(f"duration {duration}\n")
-                    
-                    inputs.extend(["-f", "concat", "-safe", "0", "-i", concat_file_path])
-                    filter_segments.append(f"[{video_input_count}:v]scale={output_size}:force_original_aspect_ratio=decrease,pad={output_size.replace('x', ':')}:(ow-iw)/2:(oh-ih)/2,setsar=1[v_out]")
-                    video_input_count += 1
+                            
+                            clip = mpy.ImageClip(img_path).set_duration(duration)
+                            
+                            # Center pad to target aspect ratio
+                            img_ratio = clip.w / clip.h
+                            target_ratio = target_w / target_h
+                            if img_ratio > target_ratio:
+                                clip = clip.resize(width=target_w)
+                            else:
+                                clip = clip.resize(height=target_h)
+                            clip = clip.on_color(size=(target_w, target_h), color=(0, 0, 0), pos='center')
+                            
+                            # Zoom effect (10% over clip duration)
+                            # We use a closure factory to capture 'duration' properly for each clip
+                            def make_zoom(dur):
+                                return lambda t: 1.0 + 0.1 * (t / dur)
+                            
+                            clip = clip.resize(make_zoom(duration))
+                            # Crop back to target size to remove bounds that expanded
+                            clip = clip.crop(x_center=target_w/2, y_center=target_h/2, width=target_w, height=target_h)
+                            
+                            # Crossfade transition (0.5s)
+                            if i > 0:
+                                clip = clip.crossfadein(0.5)
+                            clips.append(clip)
+                            
+                        # Compose clips with padding for the crossfade
+                        final_clip = mpy.concatenate_videoclips(clips, padding=-0.5, method="compose")
+                        
+                        # Set audio
+                        audio_clip = mpy.AudioFileClip(final_audio)
+                        final_clip = final_clip.set_audio(audio_clip)
+                        
+                        logging.info("Rendering cinematic video with MoviePy (this may take a few minutes)...")
+                        final_clip.write_videofile(raw_video_file, fps=24, codec="libx264", audio_codec="aac", preset="ultrafast", logger=None)
+                        skip_ffmpeg_first_pass = True
+                    except Exception as e:
+                        logging.warning(f"MoviePy rendering failed or missing ({e}). Falling back to FFmpeg concat.")
+                        logging.info(f"Creating SLIDESHOW video with size {output_size}")
+                        concat_file_path = os.path.join(output_dir, "slideshow.txt")
+                        with open(concat_file_path, "w") as f:
+                            for i, (timestamp, img_path) in enumerate(generated_images_with_times):
+                                duration = (generated_images_with_times[i+1][0] - timestamp) if i + 1 < len(generated_images_with_times) else (audio_len - timestamp)
+                                f.write(f"file '{os.path.abspath(img_path)}'\n"); f.write(f"duration {duration}\n")
+                        
+                        inputs.extend(["-f", "concat", "-safe", "0", "-i", concat_file_path])
+                        filter_segments.append(f"[{video_input_count}:v]scale={output_size}:force_original_aspect_ratio=decrease,pad={output_size.replace('x', ':')}:(ow-iw)/2:(oh-ih)/2,setsar=1[v_out]")
+                        video_input_count += 1
                 
                 else:
                     logging.info(f"Creating OVERLAY video with size {output_size}")
@@ -504,29 +566,27 @@ class Pipeline:
                         logging.warning(f"⚠️ Captions are enabled but .ass file not found at '{captions_file}'. Subtitles will be skipped.")
                         need_captions = False  # Disable so we skip the second pass
 
-                inputs.extend(["-i", final_audio])
-                
-                audio_map_index = video_input_count 
-                
-                # Determine intermediate or final output path
-                raw_video_file = final_video_file.replace(".mp4", "_raw.mp4") if need_captions else final_video_file
-
-                ffmpeg_cmd = ["ffmpeg", "-y", *inputs]
-                
-                if filter_segments: 
-                    final_filter_chain = ";".join(filter_segments)
-                    logging.debug(f"Final Filter Chain: {final_filter_chain}")
-                    ffmpeg_cmd.extend(["-filter_complex", final_filter_chain])
-                
-                ffmpeg_cmd.extend([
-                    "-map", final_video_map_tag,
-                    "-map", f"{audio_map_index}:a:0", 
-                    "-c:v", "libx264", "-pix_fmt", "yuv420p",
-                    "-t", str(audio_len), raw_video_file
-                ])
-                
-                logging.debug(f"Executing FFMPEG command: {' '.join(ffmpeg_cmd)}")
-                subprocess.run(ffmpeg_cmd, check=True, capture_output=True, text=True, encoding='utf-8')
+                if not skip_ffmpeg_first_pass:
+                    inputs.extend(["-i", final_audio])
+                    
+                    audio_map_index = video_input_count 
+                    
+                    ffmpeg_cmd = ["ffmpeg", "-y", *inputs]
+                    
+                    if filter_segments: 
+                        final_filter_chain = ";".join(filter_segments)
+                        logging.debug(f"Final Filter Chain: {final_filter_chain}")
+                        ffmpeg_cmd.extend(["-filter_complex", final_filter_chain])
+                    
+                    ffmpeg_cmd.extend([
+                        "-map", final_video_map_tag,
+                        "-map", f"{audio_map_index}:a:0", 
+                        "-c:v", "libx264", "-pix_fmt", "yuv420p",
+                        "-t", str(audio_len), raw_video_file
+                    ])
+                    
+                    logging.debug(f"Executing FFMPEG command: {' '.join(ffmpeg_cmd)}")
+                    subprocess.run(ffmpeg_cmd, check=True, capture_output=True, text=True, encoding='utf-8')
 
                 # Second pass: burn in subtitles using -vf subtitles= (more reliable than ass in filter_complex)
                 if need_captions and os.path.exists(raw_video_file):

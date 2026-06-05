@@ -9,3 +9,4 @@ pysubs2
 google-generativeai
 google-cloud-aiplatform
 pillow
+moviepy
