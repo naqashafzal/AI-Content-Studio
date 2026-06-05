@@ -5,6 +5,7 @@ import logging
 import wave
 import re
 import subprocess
+import threading
 from pathlib import Path
 from pydub import AudioSegment
 
@@ -39,6 +40,18 @@ class WriterAgent(BaseAgent):
         with open(script_file, "w", encoding="utf-8") as f:
             f.write(script)
             
+        # HITL Checkpoint: Script Approval
+        import main
+        self.log("Waiting for user approval of the script...")
+        self.set_status("Waiting for Approval...", "running")
+        resume_event = threading.Event()
+        self.ui_context.after(0, lambda: main.ScriptEditorWindow(self.ui_context, script, script_file, resume_event))
+        resume_event.wait()
+        
+        # Read the potentially edited script
+        with open(script_file, "r", encoding="utf-8") as f:
+            script = f.read()
+            
         self.set_status("Generating Audio...", "running")
         self.log("Generating Voiceover audio...")
         audio_file = os.path.join(output_dir, "voiceover.wav")
@@ -49,9 +62,9 @@ class WriterAgent(BaseAgent):
         return script_file, audio_file
 
 class DirectorAgent(BaseAgent):
-    def run(self, topic, script_file, output_dir):
+    def run(self, topic, script_file, output_dir, style="Cinematic Documentary"):
         self.set_status("Breaking down scenes...", "running")
-        self.log("Analyzing script to create scene breakdown...")
+        self.log(f"Analyzing script for a {style} production...")
         
         with open(script_file, "r", encoding="utf-8") as f:
             script = f.read()
@@ -63,7 +76,7 @@ class DirectorAgent(BaseAgent):
         scenes = []
         for i, p in enumerate(paragraphs):
             self.log(f"Generating prompt for Scene {i+1}...")
-            prompt = google_client.generate_image_prompt_for_segment("Documentary", topic, p)
+            prompt = google_client.generate_image_prompt_for_segment(style, topic, p)
             scenes.append({
                 "id": i+1,
                 "text": p,
@@ -74,12 +87,24 @@ class DirectorAgent(BaseAgent):
         with open(scene_file, "w") as f:
             json.dump(scenes, f, indent=4)
             
+        # HITL Checkpoint: Storyboard Approval
+        import main
+        self.log("Waiting for user approval of the visual prompts...")
+        self.set_status("Waiting for Approval...", "running")
+        resume_event = threading.Event()
+        self.ui_context.after(0, lambda: main.AgentStoryboardWindow(self.ui_context, scenes, scene_file, resume_event))
+        resume_event.wait()
+        
+        # Read the potentially edited scenes
+        with open(scene_file, "r", encoding="utf-8") as f:
+            scenes = json.load(f)
+            
         self.set_status("Done", "done")
         self.log(f"Director Agent finished. Created {len(scenes)} scenes.")
         return scenes
 
 class ImageGenAgent(BaseAgent):
-    def run(self, scenes, output_dir):
+    def run(self, scenes, output_dir, aspect_ratio="16:9"):
         self.set_status("Generating Images...", "running")
         wavespeed = WaveSpeedClient(self.config.get("WAVESPEED_AI_KEY"))
         
@@ -90,7 +115,7 @@ class ImageGenAgent(BaseAgent):
         
         image_paths = []
         for scene in scenes:
-            self.log(f"Generating image for Scene {scene['id']}...")
+            self.log(f"Generating image for Scene {scene['id']} ({aspect_ratio})...")
             self.set_status(f"Scene {scene['id']}/{len(scenes)}", "running")
             out_img = os.path.join(images_dir, f"scene_{scene['id']}.png")
             try:
@@ -107,7 +132,7 @@ class ImageGenAgent(BaseAgent):
         return image_paths
 
 class VideoGenAgent(BaseAgent):
-    def run(self, scenes, image_paths, output_dir):
+    def run(self, scenes, image_paths, output_dir, aspect_ratio="16:9"):
         self.set_status("Generating Videos...", "running")
         wavespeed = WaveSpeedClient(self.config.get("WAVESPEED_AI_KEY"))
         
@@ -116,13 +141,13 @@ class VideoGenAgent(BaseAgent):
         
         video_paths = []
         for i, scene in enumerate(scenes):
-            self.log(f"Generating video for Scene {scene['id']}...")
+            self.log(f"Generating video for Scene {scene['id']} ({aspect_ratio})...")
             self.set_status(f"Scene {scene['id']}/{len(scenes)}", "running")
             out_vid = os.path.join(video_dir, f"scene_{scene['id']}.mp4")
             
             try:
                 # Using WaveSpeed Text-to-Video as the core animation engine
-                wavespeed.text_to_video("tencent/hunyuan-video", scene['prompt'], out_vid, "16:9")
+                wavespeed.text_to_video("tencent/hunyuan-video", scene['prompt'], out_vid, aspect_ratio)
             except Exception as e:
                 self.log(f"Warning: Video gen failed for scene {scene['id']}: {e}. Creating a fallback static video...")
                 img_path = image_paths[i]
@@ -169,9 +194,10 @@ class EditorAgent(BaseAgent):
         return final_video
 
 class AgentOrchestrator:
-    def __init__(self, config, ui_context):
+    def __init__(self, config, ui_context, settings=None):
         self.config = config
         self.ui_context = ui_context
+        self.settings = settings or {}
         
     def run(self, topic):
         safe_topic = re.sub(r'[\\/:*?"<>|]', '', topic)
@@ -181,17 +207,36 @@ class AgentOrchestrator:
         writer = WriterAgent(self.config, self.ui_context, "Writer Agent")
         script_file, audio_file = writer.run(topic, output_dir)
         
+        director_style = self.settings.get("director_style", "Cinematic Documentary")
+        aspect_ratio = self.settings.get("aspect_ratio", "16:9").split(" ")[0] # extract "16:9" from "16:9 (YouTube)"
+        
         director = DirectorAgent(self.config, self.ui_context, "Director Agent")
-        scenes = director.run(topic, script_file, output_dir)
+        scenes = director.run(topic, script_file, output_dir, style=director_style)
         
         image_gen = ImageGenAgent(self.config, self.ui_context, "Image Gen Agent")
-        image_paths = image_gen.run(scenes, output_dir)
+        image_paths = image_gen.run(scenes, output_dir, aspect_ratio=aspect_ratio)
         
         video_gen = VideoGenAgent(self.config, self.ui_context, "Video Gen Agent")
-        video_paths = video_gen.run(scenes, image_paths, output_dir)
+        video_paths = video_gen.run(scenes, image_paths, output_dir, aspect_ratio=aspect_ratio)
         
         editor = EditorAgent(self.config, self.ui_context, "Editor Agent")
         final_video = editor.run(video_paths, audio_file, output_dir)
+        
+        if self.settings.get("auto_captions"):
+            self.ui_context.log_to_agent_console("Running Auto-Captions Pipeline...")
+            import pipeline
+            captioned_video = os.path.join(output_dir, "final_production_captioned.mp4")
+            # Create a mock update callback for the pipeline
+            def dummy_status(p, t, s): pass
+            try:
+                caption_style = self.config.get("CAPTION_STYLE", "Cinematic")
+                from api_clients import STYLE_PROFILES
+                opts = STYLE_PROFILES.get(caption_style, STYLE_PROFILES["Cinematic"])
+                pipeline.generate_captions(final_video, audio_file, output_dir, dummy_status, style_opts=opts)
+                # The pipeline saves the file inside output_dir, let's just point final_video to it
+                final_video = os.path.join(output_dir, "final_podcast_video_subtitled.mp4")
+            except Exception as e:
+                self.ui_context.log_to_agent_console(f"Auto-captioning failed: {e}")
         
         self.ui_context.log_to_agent_console("========================================")
         self.ui_context.log_to_agent_console(f"SUCCESS! Final Video saved to: {os.path.abspath(final_video)}")

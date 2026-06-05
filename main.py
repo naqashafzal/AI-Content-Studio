@@ -126,7 +126,83 @@ class ScriptEditorWindow(ctk.CTkToplevel):
         self.destroy()
         
     def on_close(self):
+        import logging
         logging.warning("Script editor closed without approval. Proceeding with unedited script.")
+        self.resume_event.set()
+        self.destroy()
+
+class AgentStoryboardWindow(ctk.CTkToplevel):
+    def __init__(self, parent, scenes, file_path, resume_event):
+        super().__init__(parent)
+        self.title("🎬 Director's Storyboard Editor")
+        self.geometry("900x700")
+        self.attributes("-topmost", True)
+        
+        self.file_path = file_path
+        self.resume_event = resume_event
+        self.scenes = scenes
+        self.scene_widgets = []
+        
+        self.grid_rowconfigure(1, weight=1)
+        self.grid_columnconfigure(0, weight=1)
+        
+        ctk.CTkLabel(self, text="Review and tweak the visual prompts for each scene before generation.", font=("Arial", 16, "bold"), text_color="#00E5FF").grid(row=0, column=0, pady=10, padx=10, sticky="w")
+        
+        # Scrollable Frame for scenes
+        self.scroll_frame = ctk.CTkScrollableFrame(self)
+        self.scroll_frame.grid(row=1, column=0, sticky="nsew", padx=10, pady=5)
+        self.scroll_frame.grid_columnconfigure(0, weight=1)
+        
+        for i, scene in enumerate(self.scenes):
+            scene_frame = ctk.CTkFrame(self.scroll_frame, fg_color="#181824", corner_radius=10)
+            scene_frame.grid(row=i, column=0, sticky="ew", padx=5, pady=10)
+            scene_frame.grid_columnconfigure(1, weight=1)
+            
+            ctk.CTkLabel(scene_frame, text=f"Scene {scene['id']}", font=("Arial", 14, "bold"), text_color="#ccc").grid(row=0, column=0, columnspan=2, sticky="w", padx=10, pady=5)
+            
+            ctk.CTkLabel(scene_frame, text="Narration:").grid(row=1, column=0, sticky="nw", padx=10, pady=5)
+            narration_box = ctk.CTkTextbox(scene_frame, height=60, font=("Arial", 12))
+            narration_box.grid(row=1, column=1, sticky="ew", padx=10, pady=5)
+            narration_box.insert("1.0", scene['text'])
+            
+            ctk.CTkLabel(scene_frame, text="Visual Prompt:", text_color="#00E5FF").grid(row=2, column=0, sticky="nw", padx=10, pady=5)
+            prompt_box = ctk.CTkTextbox(scene_frame, height=60, font=("Arial", 12, "bold"))
+            prompt_box.grid(row=2, column=1, sticky="ew", padx=10, pady=5)
+            prompt_box.insert("1.0", scene['prompt'])
+            
+            self.scene_widgets.append({
+                "id": scene['id'],
+                "narration_box": narration_box,
+                "prompt_box": prompt_box
+            })
+            
+        btn_frame = ctk.CTkFrame(self, fg_color="transparent")
+        btn_frame.grid(row=2, column=0, pady=10)
+        
+        ctk.CTkButton(btn_frame, text="✅ Approve Prompts & Continue", fg_color="#00E5FF", text_color="#0A0A0A", hover_color="#00B3CC", font=("Arial", 14, "bold"), command=self.approve_scenes).pack(side="left", padx=10)
+        
+        self.protocol("WM_DELETE_WINDOW", self.on_close)
+        
+    def approve_scenes(self):
+        import json, logging
+        updated_scenes = []
+        for widget in self.scene_widgets:
+            updated_scenes.append({
+                "id": widget["id"],
+                "text": widget["narration_box"].get("1.0", "end-1c").strip(),
+                "prompt": widget["prompt_box"].get("1.0", "end-1c").strip()
+            })
+        
+        with open(self.file_path, "w", encoding="utf-8") as f:
+            json.dump(updated_scenes, f, indent=4)
+            
+        logging.info("Storyboard approved by user. Resuming pipeline...")
+        self.resume_event.set()
+        self.destroy()
+        
+    def on_close(self):
+        import logging
+        logging.warning("Storyboard closed without approval. Proceeding with unedited prompts.")
         self.resume_event.set()
         self.destroy()
 
@@ -232,7 +308,7 @@ class App(ctk.CTk):
 
     def _create_agent_studio_widgets(self):
         self.agent_studio_tab.columnconfigure(0, weight=1)
-        self.agent_studio_tab.rowconfigure(2, weight=1)
+        self.agent_studio_tab.rowconfigure(3, weight=1)
         
         # Header
         header_frame = ctk.CTkFrame(self.agent_studio_tab, fg_color="transparent")
@@ -241,9 +317,27 @@ class App(ctk.CTk):
         ctk.CTkLabel(header_frame, text="AI Agent Studio", font=("Arial", 24, "bold"), text_color="#00E5FF").pack(side="left")
         ctk.CTkLabel(header_frame, text="Full Production House Workflow", font=("Arial", 14)).pack(side="left", padx=15, pady=5)
         
+        # Options Frame
+        options_frame = ctk.CTkFrame(self.agent_studio_tab, fg_color="#181824", corner_radius=10)
+        options_frame.grid(row=1, column=0, sticky="ew", padx=20, pady=(0, 10))
+        
+        ctk.CTkLabel(options_frame, text="Director Style:").grid(row=0, column=0, padx=(15, 5), pady=10)
+        self.agent_style_var = ctk.StringVar(value="Cinematic Documentary")
+        self.agent_style_menu = ctk.CTkOptionMenu(options_frame, variable=self.agent_style_var, values=["Cinematic Documentary", "Cyberpunk / Neon", "TikTok Viral", "Horror / Dark", "Sci-Fi / Futuristic", "Neutral"])
+        self.agent_style_menu.grid(row=0, column=1, padx=5, pady=10)
+        
+        ctk.CTkLabel(options_frame, text="Aspect Ratio:").grid(row=0, column=2, padx=(15, 5), pady=10)
+        self.agent_ratio_var = ctk.StringVar(value="16:9")
+        self.agent_ratio_menu = ctk.CTkOptionMenu(options_frame, variable=self.agent_ratio_var, values=["16:9", "9:16", "1:1"])
+        self.agent_ratio_menu.grid(row=0, column=3, padx=5, pady=10)
+        
+        self.agent_captions_var = ctk.BooleanVar(value=True)
+        self.agent_captions_check = ctk.CTkCheckBox(options_frame, text="Auto-Captions", variable=self.agent_captions_var)
+        self.agent_captions_check.grid(row=0, column=4, padx=(20, 15), pady=10)
+
         # Topic Input
         input_frame = ctk.CTkFrame(self.agent_studio_tab, fg_color="#181824", corner_radius=10)
-        input_frame.grid(row=1, column=0, sticky="ew", padx=20, pady=10)
+        input_frame.grid(row=2, column=0, sticky="ew", padx=20, pady=(0, 10))
         input_frame.columnconfigure(1, weight=1)
         
         ctk.CTkLabel(input_frame, text="Video Topic:").grid(row=0, column=0, padx=15, pady=15, sticky="w")
@@ -255,7 +349,7 @@ class App(ctk.CTk):
         
         # Node Canvas View
         self.agent_canvas_frame = ctk.CTkFrame(self.agent_studio_tab, fg_color="#0A0A0E", corner_radius=15, border_width=1, border_color="#333")
-        self.agent_canvas_frame.grid(row=2, column=0, sticky="nsew", padx=20, pady=10)
+        self.agent_canvas_frame.grid(row=3, column=0, sticky="nsew", padx=20, pady=10)
         self.agent_canvas_frame.rowconfigure(0, weight=1)
         self.agent_canvas_frame.columnconfigure(0, weight=1)
         
@@ -285,7 +379,7 @@ class App(ctk.CTk):
                 
         # Agent Logs
         log_frame = ctk.CTkFrame(self.agent_studio_tab, fg_color="#181824", corner_radius=10)
-        log_frame.grid(row=3, column=0, sticky="ew", padx=20, pady=(10, 20))
+        log_frame.grid(row=4, column=0, sticky="ew", padx=20, pady=(10, 20))
         log_frame.columnconfigure(0, weight=1)
         
         ctk.CTkLabel(log_frame, text="Terminal Logs", font=("Arial", 12, "bold")).grid(row=0, column=0, sticky="w", padx=10, pady=(10, 0))
@@ -335,13 +429,20 @@ class App(ctk.CTk):
         for node in self.agent_nodes:
             self.update_agent_node(node, "Idle", "idle")
             
-        threading.Thread(target=self._run_agent_pipeline_thread, args=(topic,), daemon=True).start()
+        settings = {
+            "director_style": self.agent_style_var.get(),
+            "aspect_ratio": self.agent_ratio_var.get(),
+            "auto_captions": self.agent_captions_var.get()
+        }
+            
+        threading.Thread(target=self._run_agent_pipeline_thread, args=(topic, settings), daemon=True).start()
 
-    def _run_agent_pipeline_thread(self, topic):
+    def _run_agent_pipeline_thread(self, topic, settings):
         import agents
         try:
             self.log_to_agent_console(f"Starting Production House Agent for: {topic}")
-            orchestrator = agents.AgentOrchestrator(self.config, self)
+            self.log_to_agent_console(f"Style: {settings['director_style']} | Ratio: {settings['aspect_ratio']} | Captions: {settings['auto_captions']}")
+            orchestrator = agents.AgentOrchestrator(self.config, self, settings)
             orchestrator.run(topic)
             self.after(0, lambda: messagebox.showinfo("Success", "Video generation complete!"))
         except Exception as e:
