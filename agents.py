@@ -6,6 +6,7 @@ import wave
 import re
 import subprocess
 import threading
+import concurrent.futures
 from pathlib import Path
 from pydub import AudioSegment
 
@@ -73,16 +74,19 @@ class DirectorAgent(BaseAgent):
         google_client = GoogleClient(self.config)
         
         self.set_status("Writing prompts...", "running")
+        self.log("Dispatching prompt generation tasks concurrently...")
         scenes = []
-        for i, p in enumerate(paragraphs):
-            self.log(f"Generating prompt for Scene {i+1}...")
+        
+        def process_paragraph(i, p):
             prompt = google_client.generate_image_prompt_for_segment(style, topic, p)
-            scenes.append({
-                "id": i+1,
-                "text": p,
-                "prompt": prompt
-            })
-            
+            return {"id": i+1, "text": p, "prompt": prompt}
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+            futures = [executor.submit(process_paragraph, i, p) for i, p in enumerate(paragraphs)]
+            for future in concurrent.futures.as_completed(futures):
+                scenes.append(future.result())
+                
+        scenes.sort(key=lambda x: x["id"])
         scene_file = os.path.join(output_dir, "scenes.json")
         with open(scene_file, "w") as f:
             json.dump(scenes, f, indent=4)
@@ -113,10 +117,11 @@ class ImageGenAgent(BaseAgent):
         
         model_id = self.config.get("WAVESPEED_IMAGE_MODEL", "stabilityai/stable-diffusion-xl-base-1.0")
         
-        image_paths = []
-        for scene in scenes:
+        self.log("Dispatching image generation tasks concurrently...")
+        image_paths_dict = {}
+        
+        def generate_image(scene):
             self.log(f"Generating image for Scene {scene['id']} ({aspect_ratio})...")
-            self.set_status(f"Scene {scene['id']}/{len(scenes)}", "running")
             out_img = os.path.join(images_dir, f"scene_{scene['id']}.png")
             try:
                 wavespeed.text_to_image(model_id, scene['prompt'], out_img)
@@ -124,9 +129,15 @@ class ImageGenAgent(BaseAgent):
                 self.log(f"Warning: Image generation failed for scene {scene['id']}: {e}")
                 from PIL import Image
                 Image.new('RGB', (1920, 1080), color='black').save(out_img)
-                
-            image_paths.append(out_img)
-            
+            return scene['id'], out_img
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+            futures = [executor.submit(generate_image, scene) for scene in scenes]
+            for future in concurrent.futures.as_completed(futures):
+                sid, path = future.result()
+                image_paths_dict[sid] = path
+
+        image_paths = [image_paths_dict[s['id']] for s in scenes]
         self.set_status("Done", "done")
         self.log(f"Image Gen Agent finished. Generated {len(image_paths)} initial frames.")
         return image_paths
@@ -139,25 +150,29 @@ class VideoGenAgent(BaseAgent):
         video_dir = os.path.join(output_dir, "videos")
         os.makedirs(video_dir, exist_ok=True)
         
-        video_paths = []
-        for i, scene in enumerate(scenes):
+        self.log("Dispatching video generation tasks concurrently...")
+        video_paths_dict = {}
+        
+        def generate_video(scene, img_path):
             self.log(f"Generating video for Scene {scene['id']} ({aspect_ratio})...")
-            self.set_status(f"Scene {scene['id']}/{len(scenes)}", "running")
             out_vid = os.path.join(video_dir, f"scene_{scene['id']}.mp4")
-            
             try:
-                # Using WaveSpeed Text-to-Video as the core animation engine
                 wavespeed.text_to_video("tencent/hunyuan-video", scene['prompt'], out_vid, aspect_ratio)
             except Exception as e:
                 self.log(f"Warning: Video gen failed for scene {scene['id']}: {e}. Creating a fallback static video...")
-                img_path = image_paths[i]
                 subprocess.run([
                     "ffmpeg", "-y", "-loop", "1", "-i", img_path, 
-                    "-c:v", "libx264", "-t", "5", "-pix_fmt", "yuv420p", out_vid
+                    "-c:v", "libx264", "-preset", "ultrafast", "-t", "5", "-pix_fmt", "yuv420p", out_vid
                 ], check=True, capture_output=True)
-                
-            video_paths.append(out_vid)
-            
+            return scene['id'], out_vid
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+            futures = [executor.submit(generate_video, scenes[i], image_paths[i]) for i in range(len(scenes))]
+            for future in concurrent.futures.as_completed(futures):
+                sid, path = future.result()
+                video_paths_dict[sid] = path
+
+        video_paths = [video_paths_dict[s['id']] for s in scenes]
         self.set_status("Done", "done")
         self.log(f"Video Gen Agent finished. Generated {len(video_paths)} video clips.")
         return video_paths
