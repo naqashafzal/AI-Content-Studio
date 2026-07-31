@@ -20,7 +20,7 @@ This application was created by **Naqash Afzal**.
 ---
 
 ## 🔋 How to Use Tutorial:
--<a href="https://youtu.be/ZxYHexaSDwA?si=fhfWIJeohZ23fI12" > Full Video Tutorial </a>
+-<a href="https://youtu.be/9JpSs57RjbY?si=5ihW2Pl_JFtwAz45" > Full Video Tutorial </a>
 
 ---
 
