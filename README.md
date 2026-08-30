@@ -25,6 +25,9 @@ Generate complete, multi-speaker podcast videos entirely from a single text prom
 - 1-click downloads for videos and raw text scripts.
 - Safely delete and manage old projects to free up workspace storage.
 
+## 🔋 How to Use Tutorial:
+-<a href="https://youtu.be/9JpSs57RjbY?si=5ihW2Pl_JFtwAz45" > Full Video Tutorial </a>
+
 ## 🛠️ Tech Stack
 
 ### Frontend (Web UI)
