@@ -1,7 +1,8 @@
 <div align="center">
-  <h1>🎬 AI Content Studio</h1>
+  <h1>🎬 AI Content Studio (Major Update)</h1>
   <p><strong>The World's Best Open-Source AI Video & Podcast Generator</strong></p>
   
+  [![YouTube](https://img.shields.io/badge/Subscribe_on-YouTube-FF0000?style=for-the-badge&logo=youtube)](https://www.youtube.com/@naqashai)
   [![Patreon](https://img.shields.io/badge/Support_on-Patreon-f96854?style=for-the-badge&logo=patreon)](https://www.patreon.com/c/naqashafzal)
   [![Instagram](https://img.shields.io/badge/Follow_on-Instagram-E4405F?style=for-the-badge&logo=instagram)](https://www.instagram.com/naqashafzal/)
   ![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)
@@ -35,8 +36,12 @@ Generate complete, multi-speaker podcast videos entirely from a single text prom
 - Safely delete and manage old projects to free up workspace storage.
 
 ## 🔋 How to Use Tutorial
-Want a step-by-step guide? Check out the full walkthrough:
-👉 **<a href="https://youtu.be/9JpSs57RjbY?si=5ihW2Pl_JFtwAz45">Full Video Tutorial</a>**
+🔥 **NEW FULL DETAILED VIDEO TUTORIAL COMING SOON!** 🔥
+A complete step-by-step video for this massively updated version is currently in the works. Make sure to **[Subscribe to our YouTube Channel (@naqashai)](https://www.youtube.com/@naqashai)** so you don't miss it when it drops!
+
+**Old Version References:**
+- If you are looking for the original codebase, you can find the old version safely stored in the GitHub Commits History.
+- 👉 **<a href="https://youtu.be/9JpSs57RjbY?si=5ihW2Pl_JFtwAz45">Watch the Old Version Video Tutorial</a>**
 
 ---
 
