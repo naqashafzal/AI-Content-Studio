@@ -14,23 +14,41 @@
 
 If you love this project and want to support its development, please consider helping out on **[Patreon](https://www.patreon.com/c/naqashafzal)** or follow my journey on **[Instagram](https://www.instagram.com/naqashafzal/)**!
 
-## 🌟 Key Features
+## 🌟 Key Features (Complete Suite)
+
+AI Content Studio has been massively upgraded into a full suite of AI content generation tools. Here is everything you can do:
 
 ### ✂️ Magic AI Clipper (The Ultimate OpusClip Clone)
 Convert any long-form YouTube video into viral, ready-to-post short-form content (TikToks, Instagram Reels, YouTube Shorts) in minutes.
-- **Smart AI Curation:** Uses Google's Gemini AI and OpenAI's Whisper transcriptions to analyze the video and automatically find the most engaging 30-60 second highlights.
+- **Smart AI Curation:** Uses Google's Gemini AI and OpenAI's Whisper transcriptions to analyze the video and automatically find the most engaging highlights.
 - **Automated Framing:** Automatically crops landscape (16:9) videos into vertical (9:16) format using advanced FFmpeg processing.
 - **Dynamic Captions:** Burns professional, highly-accurate subtitles directly into the video for maximum viewer retention.
 - **Custom Styling:** Fully control your caption aesthetics before generating. Choose your font (Arial, Roboto, Impact), dial in the exact pixel size, and apply custom color themes (e.g., Clean White, Viral Yellow, Neon Cyberpunk).
 
-### 🎙️ AI Podcast Generator
+### 🎙️ AI Podcast & Director Studio
 Generate complete, multi-speaker podcast videos entirely from a single text prompt.
-- **Script Writing:** AI dynamically writes conversational, engaging podcast scripts tailored to your niche.
+- **AI Director Engine:** AI dynamically writes conversational, engaging podcast scripts tailored to your niche.
 - **Voice Synthesis:** Realistic text-to-speech engine brings the hosts to life with emotion and clarity.
 - **Visuals & Assembly:** Automatically layers high-quality audio over dynamic background footage for a complete audio-visual experience.
 
+### 🧠 AI Explainer Videos
+- Quickly generate engaging, "faceless" explainer videos for educational or storytelling niches.
+- The AI handles script generation, voiceovers, and compiles it all with relevant background media.
+
+### 🚀 Campaign & Social Media Publisher
+- **Automated Campaigns:** Schedule and queue up bulk content generation. Set it and forget it while the AI builds your content calendar.
+- **Social Media Integration:** Connect your accounts and auto-publish directly from the dashboard to platforms like YouTube Shorts, Instagram Reels, and TikTok.
+
+### 🎨 VideoFX Studio & Timeline Editor
+- **Advanced Editing:** A powerful timeline editor built directly into the UI. Adjust clip timings, fine-tune subtitle placement, and customize your cuts manually if you don't want to rely 100% on the AI.
+- **VideoFX Integration:** Seamlessly integrate with VideoFX generators to create stunning B-roll and AI video snippets based on text prompts.
+
+### 🛡️ Brand Kit & Styling
+- Maintain visual consistency across all your videos.
+- Save custom fonts, color palettes, logo watermarks, and specific text styles in your Brand Settings so the AI uses them automatically on every export.
+
 ### 📚 History & Projects Dashboard
-- Easily browse your previously generated AI Podcasts and Magic Clipper shorts.
+- Easily browse your previously generated AI Podcasts, Clipper shorts, and campaigns.
 - Watch generated videos directly in the browser via a beautifully embedded video player.
 - 1-click downloads for videos and raw text scripts.
 - Safely delete and manage old projects to free up workspace storage.
