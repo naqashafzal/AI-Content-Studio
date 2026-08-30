@@ -32,7 +32,7 @@ except ImportError:
 
 
 # --- API Constants (As specified by user) ---
-GEMINI_TEXT_MODEL = "gemini-3-flash-preview"
+GEMINI_TEXT_MODEL = "gemini-2.5-flash"
 GEMINI_TTS_MODEL = "gemini-2.5-flash-preview-tts"
 WAVESPEED_POLL_URL = "https://api.wavespeed.ai/api/v3/predictions/{}/result"
 WAVESPEED_BASE_ENDPOINT = "https://api.wavespeed.ai/api/v3/{}"
@@ -42,60 +42,60 @@ NANO_BANANA_IMAGE_MODEL = "gemini-2.5-flash-image-preview" # For Vertex AI Image
 # --- Style Profiles: Single source of truth for all content styles ---
 STYLE_PROFILES = {
     "Podcast": {
-        "script": "Craft a lively dual-host podcast conversation with natural back-and-forth dialogue, questions, reactions, and humor.",
-        "tts": "(Speaking naturally in a warm, conversational podcast tone)",
-        "video": "A cozy professional podcast studio, soft lighting, two microphones, soundproof foam walls, cinematic bokeh, warm amber and teal tones.",
-        "image": "Photorealistic podcast studio aesthetic, professional warm atmosphere with microphones.",
-        "research": "Focus on interesting angles, debatable points, surprising facts, and recent developments.",
+        "script": "Craft an ultra-realistic, multi-layered dual-host podcast conversation. Utilize advanced conversational dynamics: interruptions, active listening ('mm-hmm', 'wow'), tangents, and callbacks. The dialogue must flow organically, balancing deep analytical insights with accessible humor and relatable analogies.",
+        "tts": "(Speaking with authentic conversational cadence, utilizing natural pauses, micro-breaths, and varied intonation to simulate spontaneous unscripted thought)",
+        "video": "Cinematic 4K podcast studio, professional multi-camera setup. Volumetric soft-box lighting, rich amber and teal color grading, shallow depth of field (f/1.8). High-end broadcast aesthetic, soundproof acoustic panels in the blurred background.",
+        "image": "Ultra-realistic 8k architectural photography of a modern high-end podcast studio. Warm ambient lighting, professional condenser microphones, cinematic depth of field, hyper-detailed textures.",
+        "research": "Uncover counter-narratives, deep-cut historical analogies, controversial expert opinions, and hidden connections that challenge conventional wisdom.",
     },
     "ASMR Video": {
-        "script": "Write a slow, meditative, deeply relaxing narration. Use sensory language — textures, sounds, gentle actions. Sentences must be short, calming, and hypnotic. No excitement or urgency.",
-        "tts": "(Whispering very softly and gently, as if speaking directly into the listener's ear, extremely slowly and soothingly)",
-        "video": "Extreme close-up macro shots of soft textures — velvet, sand, water droplets, leaves, candlelight. Slow motion. Soft natural light. Pastel and earth tones.",
-        "image": "Extreme macro photography, soft focus, calming textures, muted earth tones, candlelight, very peaceful.",
-        "research": "Focus on sensory, calming, and mindful aspects. Find peaceful, gentle angles of the story.",
+        "script": "Compose a deeply immersive, sensory-rich script. Prioritize auditory and tactile descriptions over action. Sentences must be profoundly rhythmic, slow, and hypnotic. Utilize repetition and phonetic softness (sibilance) to trigger autonomic meridian responses (ASMR).",
+        "tts": "(Whispering with extreme intimacy and softness. Enunciate every syllable with deliberate, glacial pacing. Employ intentional lip smacks and breathy pauses)",
+        "video": "Hyper-macro 8K cinematography. Slow-motion 120fps. Exquisite focus on tactile textures (velvet, liquid, powder, wood grain). Dreamlike pastel color grading, volumetric golden hour lighting, hypnotic and fluid motion.",
+        "image": "Award-winning macro photography. Razor-sharp subject focus with buttery smooth bokeh. Earth tones, soft diffused natural light, conveying absolute tranquility and stillness.",
+        "research": "Identify highly specific sensory details, textural anomalies, and rhythmic acoustic properties relevant to the topic.",
     },
     "Documentary": {
-        "script": "Write like a serious authoritative documentary narrator (David Attenborough style). Use dramatic pauses, powerful statements, and a building narrative arc. Ground every claim in facts.",
-        "tts": "(Speaking with a deep, authoritative documentary narrator voice — measured, serious, and compelling)",
-        "video": "Cinematic documentary footage. Sweeping aerial shots, dramatic landscapes, slow zooms. Film grain, desaturated color grading, epic atmosphere.",
-        "image": "Documentary-style photography. High contrast, dramatic lighting, journalistic realism. Cinematic color grading.",
-        "research": "Find historical context, expert quotes, compelling statistics, and the human story behind the facts.",
+        "script": "Adopt the gravitas of a BBC/HBO premium documentary. Structure the narrative with a cold open, historical contextualization, rising tension, and a profound philosophical conclusion. Interweave hard empirical data with emotionally resonant human-interest subplots.",
+        "tts": "(Speaking with immense gravitas, profound resonance, and measured authority. Utilize strategic silence to let heavy statements linger)",
+        "video": "Award-winning IMAX documentary cinematography. Sweeping anamorphic aerial drone shots, slow deliberate push-ins (Ken Burns effect), dramatic chiaroscuro lighting, desaturated gritty color palette (teal/orange bias).",
+        "image": "Pulitzer-prize winning photojournalism aesthetic. High-contrast black-and-white or heavily desaturated cinematic color. Gritty realism, emotional depth, perfect rule-of-thirds composition.",
+        "research": "Source primary empirical data, verified historical records, direct quotes from leading academics, and profound socio-economic impacts.",
     },
     "Story": {
-        "script": "Write a compelling narrative story with a clear beginning, rising action, climax, and resolution. Use vivid descriptions, character voices, and emotional beats.",
-        "tts": "(Speaking as an engaging storyteller — varied pace, dramatic at tense moments, warm and inviting)",
-        "video": "Cinematic storybook visuals. Rich painterly colors, dramatic lighting that follows the story mood.",
-        "image": "Cinematic narrative illustration. Dramatic composition, rich colors, a sense of story and character like a movie poster.",
-        "research": "Find the most compelling narrative — human stories, dramatic turning points, heroes and villains.",
+        "script": "Construct a masterful narrative utilizing the Hero's Journey framework. Establish deep character motivations, escalating stakes, and visceral emotional beats. Employ 'show, don't tell' methodology through vivid environmental storytelling and sensory anchoring.",
+        "tts": "(Speaking with dynamic theatrical range. Shift seamlessly between hushed tension during buildup and explosive energy during the climax)",
+        "video": "Hollywood blockbuster cinematography (ARRI Alexa 65). Dramatic motivated lighting, dynamic camera blocking, lush stylized color grading (e.g., Cyberpunk neon, or Fantasy golden hour). Evocative and atmospheric.",
+        "image": "Concept art by Craig Mullins or Greg Rutkowski. Epic scale, masterful digital painting techniques, dramatic lighting, intense emotional resonance, hyper-detailed foreground.",
+        "research": "Extract the core dramatic conflict, identifying the specific 'inciting incident' and the human cost or emotional triumph at the center of the topic.",
     },
     "Kids Story": {
-        "script": "Write a fun, simple, cheerful story for young children. Use bright positive language, repetition, simple vocabulary, and a clear moral. Characters should be lovable.",
-        "tts": "(Speaking in a bright, enthusiastic, fun children's storyteller voice — animated, clear, and very expressive)",
-        "video": "Colorful cartoonish animated world. Bright primary colors, bouncy movements, whimsical characters, sunny skies. Pixar aesthetic.",
-        "image": "Bright colorful children's book illustration. Simple shapes, bold outlines, primary colors, happy characters.",
-        "research": "Find the most fun, age-appropriate, educational angles. Focus on wonder, discovery, and positive messages.",
+        "script": "Write a highly engaging, cognitively optimized script for young children (ages 4-8). Employ rhythmic rhyming structures, repetitive learning anchors, and highly visual, optimistic language. Structure around a clear, easily digestible moral lesson.",
+        "tts": "(Speaking with hyper-animated, exuberant energy. Highly melodic intonation, exaggerated expressions of surprise and joy, crisp and slow articulation)",
+        "video": "High-budget 3D animation (Pixar/Disney aesthetic). Vibrant, hyper-saturated primary colors. Bouncy, physics-defying fluid motion. Soft, plush textures, whimsical environments, and radiant volumetric lighting.",
+        "image": "Premium 3D CGI render, Unreal Engine 5. Adorable, expressive character designs. Bright, cheerful lighting, pastel color palettes, magical atmosphere, highly detailed but soft edges.",
+        "research": "Identify the foundational educational concepts (colors, numbers, simple ethics) embedded within the topic and translate them into playful analogies.",
     },
     "Horror Story": {
-        "script": "Write a chilling, suspenseful horror story. Build dread slowly. Use dark imagery, unsettling details, and moments of genuine fear. Leave the listener unsettled.",
-        "tts": "(Speaking in a slow, tense, unsettling voice — hushed but intense, with dramatic pauses before reveals)",
-        "video": "Dark shadowy high-contrast visuals. Abandoned locations, flickering lights, fog, deep shadows. Desaturated palette with blood-red accents.",
-        "image": "Dark horror photography. Deep shadows, unsettling compositions, muted colors with red accents, a sense of dread.",
-        "research": "Find the most disturbing, unexplained, or frightening real-world angles — unsolved mysteries, dark history.",
+        "script": "Engineer a narrative of psychological terror. Utilize the 'slow burn' technique, dripping with existential dread. Focus on the uncanny valley, isolation, and sensory deprivation. Avoid jump-scares in favor of deeply unsettling, lingering descriptive horror.",
+        "tts": "(Speaking with a hollow, breathy, and deeply sinister undertone. Erratic pacing, sudden drops to a whisper, conveying genuine terror and instability)",
+        "video": "Found-footage or A24-style psychological horror cinematography. Extreme low-key lighting, heavy film grain, unsettling Dutch angles, claustrophobic framing. Sickly green/yellow color grading, deep crushing blacks.",
+        "image": "Macabre fine-art photography (Beksinski or Giger inspired). Terrifying surrealism, liminal spaces, extreme shadows, muted desolate colors, evoking intense claustrophobia and paranoia.",
+        "research": "Uncover the most disturbing, unsolved, or psychologically damaging historical facts, local folklore, or morbid scientific anomalies related to the topic.",
     },
     "Viral Video": {
-        "script": "Write punchy, high-energy, hook-driven content. Open with a jaw-dropping hook in the first 5 seconds. Use short punchy sentences. Include surprising facts and a strong call-to-action.",
-        "tts": "(Speaking fast and energetically, with high enthusiasm — punchy delivery like a viral social media creator)",
-        "video": "Fast-paced dynamic eye-catching visuals. Bold colors, rapid cuts, motion graphics, trending hyper-saturated aesthetic.",
-        "image": "Viral social media aesthetic. Bold high-contrast, eye-catching. Bright saturated colors, dynamic angles, designed to stop the scroll.",
-        "research": "Find the most shocking, surprising, counterintuitive or debated angles. What makes people share and react?",
+        "script": "Optimize for maximum algorithmic retention (TikTok/Shorts). Deploy an aggressive pattern-interrupt hook in the first 3 seconds. Utilize rapid-fire delivery, relentless dopamine hits (curiosity gaps), and a high-stakes call-to-action.",
+        "tts": "(Speaking with relentless, high-octane energy. Fast-paced, extremely punchy, zero dead air, projecting absolute confidence and urgency)",
+        "video": "Hyper-kinetic social media editing style. Rapid snap-zooms, aggressive motion graphics, glowing neon text overlays, whip-pan transitions. Insanely high saturation and contrast.",
+        "image": "Clickbait YouTube thumbnail aesthetic. Over-saturated colors, extreme close-ups of shocked expressions, glowing outlines, high-contrast dynamic angles designed for maximum CTR.",
+        "research": "Identify the absolute most shocking, counter-intuitive, or controversial 'secret' regarding the topic that challenges common knowledge.",
     },
     "Product Ad": {
-        "script": "Write a persuasive benefit-focused advertisement. Lead with the problem, introduce the solution, highlight 3 key benefits, include social proof, and close with a compelling call to action.",
-        "tts": "(Speaking in a warm, confident, trustworthy sales voice — enthusiastic but professional and persuasive)",
-        "video": "Sleek premium product advertisement. Clean backgrounds, product hero shots, smooth slow-motion, aspirational lifestyle imagery. Apple or Nike aesthetic.",
-        "image": "Premium commercial photography. Clean backgrounds, perfect product lighting, aspirational lifestyle context. Sleek modern high-end brand aesthetic.",
-        "research": "Find the strongest selling points, target audience pain points, and competitive advantages.",
+        "script": "Engineer a high-converting direct-response copywriting script. Utilize the AIDA framework (Attention, Interest, Desire, Action). Agitate a specific pain point intensely before introducing the product as the ultimate, exclusive paradigm shift.",
+        "tts": "(Speaking with magnetic, authoritative sales charisma. Smooth, persuasive, confident, and inherently trustworthy)",
+        "video": "Premium commercial cinematography (Apple/Nike aesthetic). Sleek minimalist backgrounds, macroscopic product beauty shots, buttery smooth slow-motion, elegant typography, pristine studio lighting.",
+        "image": "High-end commercial product photography. Razor-sharp focus, infinite white or sleek dark backgrounds, dramatic edge lighting, emphasizing premium build quality and luxury.",
+        "research": "Determine the core buyer psychology, specific pain points, and the ultimate unique value proposition (UVP) that destroys competitors.",
     },
 }
 
@@ -111,7 +111,7 @@ def handle_api_errors(func):
     """A decorator to catch and handle common API errors, with automatic rate-limit retries."""
     @wraps(func)
     def wrapper(*args, **kwargs):
-        max_retries = 3
+        max_retries = 5
         for attempt in range(max_retries):
             try:
                 return func(*args, **kwargs)
@@ -131,7 +131,7 @@ def handle_api_errors(func):
                 raise RuntimeError(error_message) from e
             except requests.exceptions.HTTPError as e:
                 if e.response.status_code == 429 and attempt < max_retries - 1:
-                    wait_time = 15 * (attempt + 1)
+                    wait_time = 30 * (attempt + 1)
                     logging.warning(f"⏳ HTTP 429 Rate Limit. Auto-waiting {wait_time}s before retry ({attempt+1}/{max_retries})...")
                     time.sleep(wait_time)
                     continue
@@ -205,41 +205,29 @@ class GoogleClient:
         elif engine == "WaveSpeed AI":
             api_key = self.config.get("WAVESPEED_AI_KEY")
             if not api_key: raise ValueError("WaveSpeed AI key is missing for Text Engine.")
-            # WaveSpeed LLM uses their 'any-llm' router model via the standard async task API.
-            # The model_id is passed as the 'model' parameter to route to the underlying LLM.
+            
             model_id = self.config.get("WAVESPEED_TEXT_MODEL", "meta-llama/llama-3.3-70b-instruct")
             headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-            # Submit task to the WaveSpeed any-llm model endpoint
-            submit_url = "https://api.wavespeed.ai/api/v3/wavespeed-ai/any-llm"
+            
+            # Using the proper OpenAI-compatible Chat Completions API as per WaveSpeed docs
+            submit_url = "https://api.wavespeed.ai/v1/chat/completions"
             payload = {
                 "model": model_id,
                 "messages": [{"role": "user", "content": prompt}],
             }
             if as_json:
+                payload["response_format"] = {"type": "json_object"}
                 payload["messages"][0]["content"] = prompt + "\n\nRespond ONLY with valid JSON."
-            logging.info(f"Submitting text task to WaveSpeed LLM ({model_id})...")
+                
+            logging.info(f"Generating text via WaveSpeed LLM ({model_id}) using v1/chat/completions...")
             try:
-                submit_resp = requests.post(submit_url, headers=headers, json=payload, timeout=60)
-                submit_resp.raise_for_status()
-                task_id = submit_resp.json().get("data", {}).get("id")
-                if not task_id:
-                    raise RuntimeError(f"WaveSpeed LLM did not return a task ID. Response: {submit_resp.text}")
-                # Poll for result
-                poll_url = WAVESPEED_POLL_URL.format(task_id)
-                logging.info(f"WaveSpeed LLM task submitted (ID: {task_id}). Polling for result...")
-                for _ in range(60):  # Poll up to 60 times (~120 seconds)
-                    time.sleep(2)
-                    poll_resp = requests.get(poll_url, headers=headers, timeout=30)
-                    poll_resp.raise_for_status()
-                    result = poll_resp.json().get("data", {})
-                    status = result.get("status", "")
-                    if status == "completed":
-                        outputs = result.get("outputs", {})
-                        text = outputs.get("text") or outputs.get("content") or str(outputs)
-                        return text
-                    elif status in ("failed", "cancelled"):
-                        raise RuntimeError(f"WaveSpeed LLM task failed. Status: {status}. Details: {result}")
-                raise RuntimeError("WaveSpeed LLM task timed out after 120 seconds.")
+                response = requests.post(submit_url, headers=headers, json=payload, timeout=60)
+                response.raise_for_status()
+                response_json = response.json()
+                text = response_json.get("choices", [{}])[0].get("message", {}).get("content", "")
+                if not text:
+                    raise RuntimeError(f"WaveSpeed LLM returned empty content. Response: {response.text}")
+                return text
             except requests.exceptions.HTTPError as e:
                 status_code = e.response.status_code if e.response is not None else 'N/A'
                 body = e.response.text if e.response is not None else str(e)
@@ -265,49 +253,35 @@ class GoogleClient:
         elif language:
             language_instruction = f"All output text must be written in {language}."
 
-        logging.info("Research Step 1: Identifying key facets and sub-topics...")
-        facet_prompt = (
-            f"Using Google Search, perform a deep analysis of the topic '{topic}'. "
-            "Identify: "
-            "1. Key sub-topics and foundational concepts. "
-            "2. The main individuals, companies, or entities involved. "
-            "3. The primary points of controversy, debate, or public questions. "
-            f"Format this analysis as a structured brief. {language_instruction}"
-        )
-        
         engine = self.config.get("TEXT_ENGINE", "Gemini API")
         
+        prompt = (
+            f"You are a research analyst. Create a single, comprehensive summary on the topic '{topic}'. "
+            f"Use Google Search to find key sub-topics, entities, and controversies. "
+            f"Also, incorporate these recent news headlines if relevant:\n{external_data}\n"
+            "Your summary must cover the topic's background, why it is trending, key facts, primary controversies, and future outlook. "
+            f"Be factual, dense, and coherent. {language_instruction}"
+        )
+        
         if engine == "Gemini API":
+            logging.info("Using Gemini native Google Search for single-pass research...")
             api_url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_TEXT_MODEL}:generateContent?key={self.api_key}"
-            payload = {"contents": [{"parts": [{"text": facet_prompt}]}], "tools": [{"google_search": {}}]}
+            payload = {"contents": [{"parts": [{"text": prompt}]}], "tools": [{"google_search": {}}]}
             try:
                 response = requests.post(api_url, json=payload, timeout=120)
                 response.raise_for_status()
                 response_json = response.json()
-                facet_analysis = response_json.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text")
-                if not facet_analysis: raise ValueError("No text content found in Gemini research (Facet Analysis).")
+                summary = response_json.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text")
+                if not summary: raise ValueError("No text content found in Gemini research.")
+                return summary
             except requests.exceptions.HTTPError:
                 raise # Let the @handle_api_errors wrapper manage retries
             except Exception as e:
-                logging.error(f"Failed during Research Step 1 (Facet Analysis): {e}")
-                raise RuntimeError(f"Failed research step 1: {e}")
+                logging.error(f"Failed during Research: {e}")
+                raise RuntimeError(f"Failed research: {e}")
         else:
-            logging.info("Using non-Gemini engine for research. Skipping native Google Search Tool and relying on NewsAPI context.")
-            facet_analysis = self._generate_text(facet_prompt)
-
-        logging.info("Research Step 2: Synthesizing final summary...")
-        synthesis_prompt = (
-            f"You are a research analyst. Your goal is to create a single, comprehensive, and well-structured summary on the topic '{topic}'. "
-            "You must synthesize the following two sources of information: "
-            f"\nSOURCE 1: A preliminary analysis of the topic's key facets:\n---START SOURCE 1---\n{facet_analysis}\n---END SOURCE 1---"
-            f"\nSOURCE 2: A feed of recent news headlines:\n---START SOURCE 2---\n{external_data}\n---END SOURCE 2---"
-            "\nYOUR TASK: "
-            "Using ONLY the information provided in the sources above, write a detailed, synthesized summary. This summary must cover the topic's background, why it is trending, key facts, primary controversies/debates, and the future outlook. "
-            "Ensure the summary is well-organized, factually dense, and coherent. "
-            f"{language_instruction}"
-        )
-        
-        return self._generate_text(synthesis_prompt)
+            logging.info("Using non-Gemini engine for research. Relying on NewsAPI context.")
+            return self._generate_text(prompt)
 
     @handle_api_errors
     def generate_seo_metadata(self, topic: str, script: str) -> dict:
@@ -331,7 +305,7 @@ class GoogleClient:
         response_text = self._generate_text(prompt, as_json=True)
         
         try:
-            return json.loads(response.text)
+            return json.loads(response_text)
         except json.JSONDecodeError:
             logging.warning("Initial JSON parsing failed for SEO. Attempting to extract and clean.")
             try:
@@ -379,7 +353,14 @@ class GoogleClient:
             if language.lower() == 'urdu': language_instruction = "The entire script must be in Roman Urdu."
             else: language_instruction = f"The entire script must be in {language}."
 
-        length_instruction = f"The total word count must be appropriate for a '{script_length}' spoken video."
+        word_limits = {
+            "Micro (< 1 minute)": "STRICTLY under 130 words in total (around 45 seconds of speech)",
+            "Short (~2 minutes)": "STRICTLY between 250 to 300 words in total (around 2 minutes of speech)",
+            "Medium (~5 minutes)": "STRICTLY between 700 to 800 words in total (around 5 minutes of speech)",
+            "Long (~10 minutes)": "STRICTLY between 1400 to 1500 words in total (around 10 minutes of speech)"
+        }
+        target_words = word_limits.get(script_length, "STRICTLY between 700 to 800 words in total")
+        length_instruction = f"CRITICAL REQUIREMENT: The total word count MUST be {target_words}. Do not exceed this limit under any circumstances."
         story_arc_prompt = f"Structure the script to follow the '{story_arc}' narrative arc." if story_arc != "None" else ""
 
         if is_podcast_mode:
@@ -405,7 +386,7 @@ You are an expert scriptwriter. Create an engaging dual-host podcast script.
 **DIALOGUE RULES (CRITICAL):**
 - Simulate a real unscripted conversation. Use natural fillers ("Right," "Wow," "So...").
 - Keep speaking turns short (2-3 sentences). The host must REACT to the guest.
-- VOCAL DIRECTIONS (MANDATORY): Prepend EVERY line for both {host} and {guest} with a parenthetical direction. Base vocal style: {tts_instruction}.
+- VOCAL TONE: The overall vocal style should be: {tts_instruction}. Add brief, varied acting notes in parentheses occasionally (e.g., (Laughs), (Surprised), (Thoughtful)). Do NOT repeat the same direction on every line.
 
 **STRUCTURE:** Cold Open/Hook → Introduction → Main Discussion → Conclusion → Outro
 
@@ -436,8 +417,8 @@ You are an expert scriptwriter specializing in '{content_style}' content. Create
 
 **SCRIPT REQUIREMENTS:**
 - This is a single-voice narration. Write ONLY the narration — no speaker labels.
-- VOCAL DIRECTIONS (MANDATORY): Add parenthetical vocal directions throughout. Overall style: {tts_instruction}.
-- Example: {tts_instruction} The story begins...
+- VOCAL TONE: The overall vocal style should be: {tts_instruction}. Add brief, varied acting notes in parentheses occasionally (e.g., (Chuckles), (Serious tone)).
+- Example: (Enthusiastically) The story begins...
 - {language_instruction}
 - {length_instruction}
 - {story_arc_prompt}
@@ -466,9 +447,43 @@ Generate the complete script now, ensuring all vocal directions match the '{cont
             f"Topic: {topic}\n"
             f"Script segment: '{script_segment}'\n"
             f"Visual style MUST match this aesthetic: {image_style}{extra}\n"
+            f"IMPORTANT: If characters are in the scene, explicitly describe dynamic human poses and gestures (e.g., pointing at camera, looking shocked, gesturing with hands, leaning thoughtfully). Avoid stiff standing poses.\n"
             "Output ONLY the final image prompt, nothing else."
         )
         return self._generate_text(refinement_prompt).strip().replace('"', '')
+
+    @handle_api_errors
+    def generate_image_prompts_batch(self, content_style: str, topic: str, script_segments: list, style_guide: str = "") -> list:
+        logging.info(f"Batch generating {len(script_segments)} image prompts in a single API call...")
+        profile = get_style_profile(content_style)
+        image_style = profile["image"]
+        extra = f" Additional style notes: {style_guide}" if style_guide and style_guide.strip() else ""
+        
+        segments_json = json.dumps(script_segments)
+        
+        prompt = (
+            f"You are an expert prompt engineer for an AI image generator. "
+            f"I have a video script about '{topic}'. "
+            f"Below is a JSON array of script segments. For EACH segment, generate a concise visual prompt (under 60 words). "
+            f"Visual style MUST match this aesthetic: {image_style}{extra}\n"
+            f"IMPORTANT: If characters are in the scene, explicitly describe dynamic human poses and gestures (e.g., pointing, looking shocked, gesturing with hands). Avoid stiff poses.\n"
+            f"Your output MUST be a valid JSON array of strings, where each string is the image prompt for the corresponding segment.\n"
+            f"Script segments:\n{segments_json}"
+        )
+        
+        response_text = self._generate_text(prompt, as_json=True)
+        try:
+            prompts = json.loads(response_text)
+            if isinstance(prompts, dict) and "prompts" in prompts:
+                prompts = prompts["prompts"]
+            if not isinstance(prompts, list):
+                raise ValueError("Expected a JSON array of strings.")
+            while len(prompts) < len(script_segments):
+                prompts.append(f"A cinematic shot reflecting the topic of {topic}.")
+            return prompts[:len(script_segments)]
+        except Exception as e:
+            logging.error(f"Failed to decode batch JSON prompts: {e}")
+            return [f"A cinematic shot reflecting the topic of {topic}."] * len(script_segments)
 
 
     @handle_api_errors
@@ -504,12 +519,12 @@ Generate the complete script now, ensuring all vocal directions match the '{cont
         --- END SCRIPT ---
         Generate the JSON list of chapter titles now.
         """
-        response = self.text_model.generate_content(prompt, generation_config={"response_mime_type": "application/json"})
+        response_text = self._generate_text(prompt, as_json=True)
         try:
-            text = response.text.strip().replace("```json", "").replace("```", "")
+            text = response_text.strip().replace("```json", "").replace("```", "")
             return json.loads(text)
         except (json.JSONDecodeError, AttributeError):
-            logging.error(f"Failed to parse chapter titles JSON. Raw: {getattr(response, 'text', 'NO TEXT')}")
+            logging.error(f"Failed to parse chapter titles JSON. Raw: {response_text}")
             return ["Intro"]
 
     @handle_api_errors
@@ -591,9 +606,21 @@ Generate the complete script now, ensuring all vocal directions match the '{cont
         all_audio_data = []
 
         for i, chunk in enumerate(script_chunks):
+            chunk = chunk.strip()
+            if not chunk:
+                logging.info(f"Skipping empty chunk {i+1}/{len(script_chunks)}")
+                continue
+
             logging.info(f"Generating audio for chunk {i+1}/{len(script_chunks)}...")
+            
+            instruction = (
+                "You are a highly realistic human voice actor. Deliver the following script with "
+                "natural emotion, dynamic pacing, breathing, and conversational tone to completely "
+                "eliminate any robotic feel. Do not read this instruction, ONLY read the script:\\n\\n"
+            )
+            
             payload = {
-                "contents": [{"parts": [{"text": chunk}]}],
+                "contents": [{"parts": [{"text": instruction + chunk}]}],
                 "generationConfig": {"responseModalities": ["AUDIO"]},
                 "safetySettings": [
                     {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
@@ -645,11 +672,24 @@ Create ONE highly descriptive video prompt (under 100 words) for this specific s
 Rules:
 1. Visually describe the scene happening in the script segment.
 2. The visual style MUST match: {video_style}{extra}
-3. Output ONLY the final video prompt, nothing else.
+3. IMPORTANT: If characters are in the scene, explicitly describe dynamic human poses and cinematic motion (e.g., gesturing enthusiastically, walking toward the camera, leaning in closely). Avoid stiff, static standing poses.
+4. Output ONLY the final video prompt, nothing else.
 TOPIC: {topic}
 SCENE DIALOGUE/NARRATION: '{script_segment}'
 Generate the final video prompt now.
 """
+        return self._generate_text(prompt).strip().replace('"', '')
+
+    @handle_api_errors
+    def generate_search_query(self, topic: str, script_segment: str) -> str:
+        """Generates a short 1-3 word search query for fetching stock video (e.g. from Pixabay)."""
+        prompt = f"""
+        Topic: {topic}
+        Script Segment: {script_segment}
+        
+        Extract the most visually prominent subject from this script segment into a short, 1 to 3 word keyword search query suitable for a stock video database like Pixabay. 
+        Only output the keywords, no punctuation or explanation.
+        """
         return self._generate_text(prompt).strip().replace('"', '')
 
 
@@ -694,7 +734,11 @@ class WaveSpeedClient:
             status = poll_response.json().get("data", {}).get("status")
             if status == "completed":
                 logging.info("Generation completed dynamically. Downloading output asset...")
-                url = poll_response.json()["data"]["outputs"][0]
+                data = poll_response.json().get("data", {})
+                outputs = data.get("outputs", [])
+                if not outputs:
+                    raise RuntimeError("WaveSpeed Model task completed but returned no outputs.")
+                url = outputs[0] if isinstance(outputs, list) else outputs.get("url", str(outputs))
                 with open(output_path, "wb") as f: f.write(requests.get(url).content)
                 logging.info(f"Asset successfully saved to {output_path}"); return
             elif status == "failed":
@@ -738,11 +782,11 @@ class WaveSpeedClient:
         req_id = initial_response.json().get("data", {}).get("id")
         self._poll_and_download(req_id, output_path, timeout=600)
 
-    def text_to_speech(self, model_id: str, text: str, output_path: str):
+    def text_to_speech(self, model_id: str, text: str, output_path: str, voice: str = "Brian"):
         if not self.api_key: raise ValueError("WaveSpeed AI key is missing.")
         headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
         api_url = WAVESPEED_BASE_ENDPOINT.format(model_id)
-        payload = {"text": text, "voice": "Brian"}
+        payload = {"text": text, "voice": voice}
         logging.info(f"Sending text-to-speech task to WaveSpeed via {model_id}...")
         initial_response = requests.post(api_url, headers=headers, json=payload, timeout=120)
         initial_response.raise_for_status()
@@ -755,3 +799,53 @@ class WaveSpeedClient:
              
         req_id = resp_json.get("data", {}).get("id")
         self._poll_and_download(req_id, output_path, timeout=600)
+
+class PixabayClient:
+    """Client for fetching stock footage (B-Roll) from Pixabay."""
+    def __init__(self, api_key):
+        self.api_key = api_key
+        
+    def download_video(self, query: str, output_path: str, is_vertical: bool = False) -> bool:
+        """Searches Pixabay for a video matching the query and downloads it."""
+        if not self.api_key:
+            logging.warning("Pixabay API key not provided. Skipping stock footage search.")
+            return False
+            
+        logging.info(f"Searching Pixabay for video: '{query}'")
+        try:
+            orientation = "vertical" if is_vertical else "horizontal"
+            url = f"https://pixabay.com/api/videos/?key={self.api_key}&q={requests.utils.quote(query)}&per_page=3&safesearch=true&orientation={orientation}"
+            resp = requests.get(url, timeout=15)
+            resp.raise_for_status()
+            data = resp.json()
+            
+            if data.get("totalHits", 0) == 0 or not data.get("hits"):
+                logging.warning(f"No Pixabay videos found for query '{query}'.")
+                return False
+                
+            # Get highest quality MP4 link from the first hit
+            first_hit = data["hits"][0]
+            videos = first_hit.get("videos", {})
+            
+            # Prefer large, then medium, then small
+            video_url = None
+            for size in ["large", "medium", "small"]:
+                if size in videos and videos[size].get("url"):
+                    video_url = videos[size]["url"]
+                    break
+                    
+            if not video_url:
+                return False
+                
+            logging.info(f"Downloading Pixabay video from: {video_url}")
+            vid_resp = requests.get(video_url, timeout=30)
+            vid_resp.raise_for_status()
+            
+            with open(output_path, "wb") as f:
+                f.write(vid_resp.content)
+            logging.info(f"Successfully downloaded Pixabay B-roll to {output_path}")
+            return True
+            
+        except Exception as e:
+            logging.error(f"Failed to fetch Pixabay video for '{query}': {e}")
+            return False

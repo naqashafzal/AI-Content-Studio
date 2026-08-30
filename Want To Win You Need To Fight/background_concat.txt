@@ -1,0 +1,2 @@
+file 'C:\Users\naqas\OneDrive\Desktop\Prog\AI-Content-Studio\Want To Win You Need To Fight\background_clip1.mp4'
+file 'C:\Users\naqas\OneDrive\Desktop\Prog\AI-Content-Studio\Want To Win You Need To Fight\background_clip2.mp4'

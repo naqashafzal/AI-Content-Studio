@@ -12,6 +12,7 @@ API client classes and the configuration module to customize its behavior.
 import os
 import re
 import time
+import json
 import logging
 import subprocess
 import wave
@@ -23,7 +24,7 @@ import whisper
 import pysubs2
 
 # Import the API client classes
-from api_clients import GoogleClient, WaveSpeedClient, NewsApiClient
+from api_clients import GoogleClient, WaveSpeedClient, NewsApiClient, PixabayClient
 
 # --- Constants for Pipeline Flow ---
 PIPELINE_STEPS = [
@@ -111,29 +112,55 @@ def generate_captions(audio_file, captions_file, language: str, style_opts: dict
             style = pysubs2.SSAStyle(
                 fontname=style_opts.get("fontname", "Arial Black"),
                 fontsize=style_opts.get("fontsize", 46),
-                primarycolor=style_opts.get("primarycolor", pysubs2.Color(255, 255, 0, 0)),    # Default Yellow
-                outlinecolor=style_opts.get("outlinecolor", pysubs2.Color(0, 0, 0, 0)),         # Default Black outline
-                backcolor=style_opts.get("backcolor", pysubs2.Color(0, 0, 0, 180)),             # Default Semi-transparent shadow
+                primarycolor=style_opts.get("primarycolor", pysubs2.Color(255, 255, 0, 0)),
+                outlinecolor=style_opts.get("outlinecolor", pysubs2.Color(0, 0, 0, 0)),
+                backcolor=style_opts.get("backcolor", pysubs2.Color(0, 0, 0, 180)),
                 bold=style_opts.get("bold", True),
                 outline=style_opts.get("outline", 3),
                 shadow=style_opts.get("shadow", 1),
-                alignment=style_opts.get("alignment", 2),   # Bottom-center (SSA alignment 2)
+                alignment=style_opts.get("alignment", 2),
                 marginv=style_opts.get("marginv", 40),
                 marginl=style_opts.get("marginl", 20),
                 marginr=style_opts.get("marginr", 20),
             )
             subs.styles["Default"] = style
+            
+            # Hormozi-style Dictionary
+            emojis = {
+                "MONEY": "💰", "CASH": "💰", "DOLLAR": "💰", "REVENUE": "💰", "MILLION": "💰", "BILLION": "💰",
+                "VIRAL": "🔥", "EXPLOSIVE": "🔥", "FIRE": "🔥",
+                "SECRET": "🤫", "HIDDEN": "🤫", "TRUTH": "🤫",
+                "CRAZY": "🤯", "INSANE": "🤯", "MIND": "🤯",
+                "TIME": "⏱️", "FAST": "⏱️", "QUICK": "⏱️",
+                "HACK": "🛠️", "WOW": "😲"
+            }
+            
+            highlight_color = "{\\c&H00FFFF&}" # Yellow in ASS (BBGGRR)
+            
             for word in all_word_timestamps:
                 start_ms = int(word['start'] * 1000)
                 end_ms   = int(word['end']   * 1000)
-                text = word['word'].strip().upper()
-                if text:
-                    subs.append(pysubs2.SSAEvent(
-                        start=pysubs2.make_time(ms=start_ms),
-                        end=pysubs2.make_time(ms=end_ms),
-                        text=text,
-                        style="Default"
-                    ))
+                
+                raw_text = word['word'].strip().upper()
+                clean_word = re.sub(r'[^A-Z]', '', raw_text) # strip punctuation for matching
+                
+                if not raw_text:
+                    continue
+                    
+                final_text = raw_text
+                
+                # Apply Dynamic Styling
+                if clean_word in emojis:
+                    # Highlight keyword and append emoji
+                    final_text = f"{highlight_color}{raw_text} {emojis[clean_word]}"
+                
+                subs.append(pysubs2.SSAEvent(
+                    start=pysubs2.make_time(ms=start_ms),
+                    end=pysubs2.make_time(ms=end_ms),
+                    text=final_text,
+                    style="Default"
+                ))
+                
             subs.save(captions_file)
             logging.info(f"Captions file saved: {captions_file} ({len(subs)} events)")
             
@@ -165,8 +192,9 @@ class Pipeline:
         self.update_timestamps = timestamps_callback # New callback
         self.on_script_generated = on_script_generated
         self.google_client = GoogleClient(config)
-        self.wavespeed_client = WaveSpeedClient(config.get("WAVESPEED_AI_KEY"))
+        self.wavespeed_client = WaveSpeedClient(config.get("WAVESPEED_API_KEY"))
         self.news_client = NewsApiClient(config.get("NEWS_API_KEY"))
+        self.pixabay_client = PixabayClient(config.get("PIXABAY_API_KEY"))
 
     def _check_stop(self):
         if self.stop_event.is_set():
@@ -233,18 +261,21 @@ class Pipeline:
             generated_images_with_times = []
 
             # --- Research and Scripting ---
+            skipped_research = False
             if "Deep Research" in steps_to_run and os.path.exists(summary_file):
                 logging.info(f"Skipping Deep Research, {summary_file} already exists.")
                 research = open(summary_file, "r", encoding="utf-8").read()
                 self.update_status(0, "☑️", 1.0)
+                skipped_research = True
             elif "Deep Research" in steps_to_run: 
                 self.update_status(0, "⏳", 0.2); research = self.google_client.deep_research(topic, self.config.get("PODCAST_LANGUAGE"), self.news_client); open(summary_file, "w", encoding="utf-8").write(research); self.update_status(0, "✅", 1.0)
             elif os.path.exists(summary_file): 
                 research = open(summary_file, "r", encoding="utf-8").read(); self.update_status(0, "☑️", 1.0)
+                skipped_research = True
             self._check_stop()
 
             if "Fact Check Research" in steps_to_run:
-                if self.config.get("FACT_CHECK_ENABLED", False):
+                if self.config.get("FACT_CHECK_ENABLED", False) and not skipped_research:
                     self.update_status(1, "⏳", 0.2); logging.info("Fact-checking the core research...")
                     fact_check = self.google_client.fact_check_script(research, self.config.get("PODCAST_LANGUAGE")); self.update_status(1, "✅", 1.0)
                     self._check_stop()
@@ -316,7 +347,7 @@ class Pipeline:
             elif "Audio (TTS)" in steps_to_run:
                 self.update_status(6, "⏳", 0.2)
                 if self.config.get("AUDIO_ENGINE") == "WaveSpeed AI":
-                    self.wavespeed_client.text_to_speech(self.config.get("WAVESPEED_AUDIO_MODEL"), sanitize_for_tts(script), audio_file)
+                    self.wavespeed_client.text_to_speech(self.config.get("WAVESPEED_AUDIO_MODEL"), sanitize_for_tts(script), audio_file, voice=self.config.get("VOICE_NAME", "Brian"))
                 else:
                     self.google_client.generate_tts(sanitize_for_tts(script), audio_file, self.config)
                 audio_len = self._get_audio_length(audio_file); self.update_status(6, f"✅ {audio_len:.1f}s", 1.0)
@@ -335,6 +366,16 @@ class Pipeline:
                 if os.path.exists(audio_file):
                     # Always regenerate the .ass file if captions are needed but the file is missing
                     captions_missing = need_captions and not os.path.exists(captions_file)
+                    timestamps_file = os.path.join(output_dir, "timestamps.json")
+                    
+                    if not self.word_timestamps_for_images and os.path.exists(timestamps_file):
+                        try:
+                            with open(timestamps_file, "r") as f:
+                                self.word_timestamps_for_images = json.load(f)
+                            logging.info(f"Loaded timestamps from {timestamps_file}")
+                        except Exception as e:
+                            logging.error(f"Failed to load timestamps.json: {e}")
+                    
                     if not self.word_timestamps_for_images or captions_missing:
                         # Whisper uses None for auto-detect or ISO codes like 'en', not full words like 'English'
                         lang = self.config.get("PODCAST_LANGUAGE", "English")
@@ -345,6 +386,11 @@ class Pipeline:
                             captions_file if need_captions else None,
                             whisper_lang
                         )
+                        try:
+                            with open(timestamps_file, "w") as f:
+                                json.dump(self.word_timestamps_for_images, f)
+                        except Exception as e:
+                            logging.error(f"Failed to save timestamps.json: {e}")
                     else:
                         logging.info(f"Skipping Whisper - word_timestamps already loaded ({len(self.word_timestamps_for_images)} words). captions_missing={captions_missing}")
 
@@ -434,6 +480,59 @@ class Pipeline:
                     elif len(clip_paths) == 1 and clip_paths[0] != bg_video_file:
                         import shutil; shutil.move(clip_paths[0], bg_video_file)
                     self.update_status(8, f"✅ {len(clip_paths)} clip(s)", 1.0) if clip_paths else self.update_status(8, "❌", 1.0)
+                elif bg_mode == "Stock Video (Pixabay)":
+                    self.update_status(8, "⏳", 0.2)
+                    # Dynamically calculate clip count: 1 clip per 15 seconds of audio, capped at 40
+                    clip_count = max(1, min(40, int(audio_len / 15))) if audio_len > 0 else 1
+                    clip_paths = []
+                    video_interval = max(1, int(audio_len / clip_count)) if audio_len > 0 else 10
+                    for clip_idx in range(clip_count):
+                        start_t = clip_idx * video_interval
+                        end_t = start_t + video_interval
+                        if self.word_timestamps_for_images:
+                            segment_text = " ".join([w['word'] for w in self.word_timestamps_for_images if start_t <= w['start'] < end_t])
+                            if not segment_text.strip(): segment_text = script[:500]
+                        else:
+                            segment_text = script[:500]
+
+                        clip_path = bg_video_file.replace(".mp4", f"_clip{clip_idx+1}.mp4") if clip_count > 1 else bg_video_file
+                        if os.path.exists(clip_path):
+                            logging.info(f"Skipping Pixabay clip {clip_idx+1}, already exists.")
+                            clip_paths.append(clip_path)
+                            continue
+                            
+                        raw_clip_path = bg_video_file.replace(".mp4", f"_clip{clip_idx+1}_raw.mp4")
+                        query = self.google_client.generate_search_query(topic, segment_text)
+                        try:
+                            is_vertical = self.config.get("VIDEO_ASPECT_RATIO", "16:9") == "9:16"
+                            success = self.pixabay_client.download_video(query, raw_clip_path, is_vertical=is_vertical)
+                            if success:
+                                # Normalize video to standard resolution & 24fps so they can be concatenated
+                                vf_scale = "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920" if is_vertical else "scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080"
+                                subprocess.run([
+                                    "ffmpeg", "-y", "-i", raw_clip_path, 
+                                    "-vf", vf_scale, "-r", "24", 
+                                    "-c:v", "libx264", "-preset", "fast", "-c:a", "copy", 
+                                    clip_path
+                                ], check=True, capture_output=True)
+                                
+                                clip_paths.append(clip_path)
+                                logging.info(f"Pixabay clip {clip_idx+1}/{clip_count} downloaded and normalized.")
+                            else:
+                                logging.error(f"Pixabay clip {clip_idx+1} failed to find footage for '{query}'")
+                        except Exception as e:
+                            logging.error(f"Pixabay clip {clip_idx+1} failed: {e}")
+                        self._check_stop()
+                    
+                    if len(clip_paths) > 1:
+                        concat_txt = bg_video_file.replace(".mp4", "_concat.txt")
+                        with open(concat_txt, "w") as cf:
+                            for cp in clip_paths: cf.write(f"file '{os.path.abspath(cp)}'\n")
+                        subprocess.run(["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", concat_txt, "-c", "copy", bg_video_file], check=True, capture_output=True)
+                        logging.info(f"Concatenated {len(clip_paths)} Pixabay clips into {bg_video_file}")
+                    elif len(clip_paths) == 1 and clip_paths[0] != bg_video_file:
+                        import shutil; shutil.move(clip_paths[0], bg_video_file)
+                    self.update_status(8, f"✅ {len(clip_paths)} clip(s)", 1.0) if clip_paths else self.update_status(8, "❌", 1.0)
                 else:
                     logging.info(f"BG Mode is '{bg_mode}'. Skipping video generation."); self.update_status(8, "⏭️", 1.0)
             self._check_stop()
@@ -462,7 +561,11 @@ class Pipeline:
                     logging.info(f"Skipping Create Final Video, {final_video_file} already exists.")
                     self.update_status(10, "☑️", 1.0)
             if "Create Final Video" in steps_to_run and not os.path.exists(final_video_file):
-                self.update_status(10, "⏳", 0.2); output_size = "720x1280" if self.config.get("VIDEO_ASPECT_RATIO") == "9:16 (Vertical)" else "1280x720"
+                self.update_status(10, "⏳", 0.2)
+                aspect = self.config.get("VIDEO_ASPECT_RATIO", "16:9")
+                if aspect == "9:16": output_size = "1080x1920"
+                elif aspect == "1:1": output_size = "1080x1080"
+                else: output_size = "1920x1080"
                 
                 inputs = []            
                 filter_segments = []   
@@ -606,6 +709,47 @@ class Pipeline:
                     os.remove(raw_video_file)  # Clean up intermediate file
                     logging.info("✅ Subtitles burned in successfully.")
 
+                # --- Brand Assets ---
+                logo_path = self.config.get("SOFTWARE_LOGO_PATH")
+                intro_path = self.config.get("INTRO_VIDEO_PATH")
+                outro_path = self.config.get("OUTRO_VIDEO_PATH")
+                watermark_pos = self.config.get("WATERMARK_POSITION", "Bottom-Right")
+                
+                if (logo_path and os.path.exists(logo_path)) or (intro_path and os.path.exists(intro_path)) or (outro_path and os.path.exists(outro_path)):
+                    logging.info("Applying Brand Assets...")
+                    current_vid = final_video_file
+                    branded_vid = os.path.join(output_dir, "branded_temp.mp4")
+                    
+                    if logo_path and os.path.exists(logo_path):
+                        logging.info("Overlaying Watermark...")
+                        pos_str = "main_w-overlay_w-20:main_h-overlay_h-20" # Bottom-Right
+                        if watermark_pos == "Top-Left": pos_str = "20:20"
+                        elif watermark_pos == "Top-Right": pos_str = "main_w-overlay_w-20:20"
+                        elif watermark_pos == "Bottom-Left": pos_str = "20:main_h-overlay_h-20"
+                        
+                        subprocess.run([
+                            "ffmpeg", "-y", "-i", current_vid, "-i", logo_path,
+                            "-filter_complex", f"[1:v]scale=iw*0.15:-1[wm];[0:v][wm]overlay={pos_str}",
+                            "-c:a", "copy", branded_vid
+                        ], check=True, capture_output=True)
+                        import shutil; shutil.move(branded_vid, current_vid)
+                        
+                    if (intro_path and os.path.exists(intro_path)) or (outro_path and os.path.exists(outro_path)):
+                        logging.info("Stitching Intro/Outro...")
+                        concat_txt = os.path.join(output_dir, "brand_concat.txt")
+                        with open(concat_txt, "w") as f:
+                            if intro_path and os.path.exists(intro_path):
+                                f.write(f"file '{os.path.abspath(intro_path)}'\n")
+                            f.write(f"file '{os.path.abspath(current_vid)}'\n")
+                            if outro_path and os.path.exists(outro_path):
+                                f.write(f"file '{os.path.abspath(outro_path)}'\n")
+                        
+                        subprocess.run([
+                            "ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", concat_txt,
+                            "-c", "copy", branded_vid
+                        ], check=True, capture_output=True)
+                        import shutil; shutil.move(branded_vid, current_vid)
+
                 self.update_status(10, "✅", 1.0)
             else:
                 self.update_status(10, "⏭️", 1.0)
@@ -613,17 +757,21 @@ class Pipeline:
 
             # --- Final Metadata (RUNS BEFORE TIMESTAMPS) ---
             if "Generate SEO Metadata" in steps_to_run:
-                if self.config.get("GENERATE_METADATA", False) and self.update_seo:
+                if self.config.get("GENERATE_SEO", False) or self.config.get("GENERATE_METADATA", False):
                     self.update_status(11, "⏳", 0.2)
                     metadata = self.google_client.generate_seo_metadata(topic, script) # Use script
-                    self.update_seo(metadata)
+                    if self.update_seo:
+                        self.update_seo(metadata)
+                    else:
+                        with open(os.path.join(output_dir, "seo_metadata.json"), "w", encoding="utf-8") as f:
+                            json.dump(metadata, f, indent=4)
                     self.update_status(11, "✅", 1.0)
                 else: 
                     self.update_status(11, "⏭️", 1.0)
 
             # --- Timestamp Generation (RUNS AFTER SEO, TO APPEND) ---
             if "Generate Timestamps" in steps_to_run:
-                if need_timestamps and self.update_timestamps:
+                if need_timestamps:
                     self.update_status(12, "⏳", 0.2)
                     logging.info("Generating accurate timestamps locally...")
                     
@@ -656,7 +804,11 @@ class Pipeline:
                             logging.warning(f"Could not find timestamp match for chapter: '{title}' (word: '{first_word_of_title}')")
 
                     if found_chapters > 0:
-                        self.update_timestamps(timestamp_output)
+                        if self.update_timestamps:
+                            self.update_timestamps(timestamp_output)
+                        else:
+                            with open(os.path.join(output_dir, "timestamps.txt"), "w", encoding="utf-8") as f:
+                                f.write(timestamp_output)
                     else:
                         logging.error("Failed to match any chapter titles to timestamp data.")
 
@@ -668,7 +820,7 @@ class Pipeline:
             if "Generate Snippets" in steps_to_run:
                 if self.config.get("GENERATE_SNIPPETS", False):
                     self.update_status(13, "⏳", 0.2); snippets_dir = os.path.join(output_dir, "snippets"); os.makedirs(snippets_dir, exist_ok=True)
-                    is_vertical = self.config.get("VIDEO_ASPECT_RATIO", "16:9 (Horizontal)") == "9:16 (Vertical)"
+                    is_vertical = self.config.get("VIDEO_ASPECT_RATIO", "16:9") == "9:16"
                     for i in range(int(audio_len // 60)):
                         output_snippet_path = os.path.join(snippets_dir, f"snippet_{i+1}.mp4"); start_time = str(i * 60)
                         if is_vertical: 
@@ -684,23 +836,25 @@ class Pipeline:
             
             logging.info("✅✅ Pipeline completed successfully! ✅✅")
             success = True
+            return final_video_file
 
-        except (InterruptedError, FileNotFoundError) as e: logging.warning(str(e))
+        except (InterruptedError, FileNotFoundError) as e:
+            logging.warning(str(e))
+            raise e
         except subprocess.CalledProcessError as e: 
             logging.error(f"ffmpeg command failed with exit code {e.returncode}\nffmpeg stderr:\n{e.stderr if e.stderr else 'No stderr'}")
             self.update_status_on_error()
+            raise e
         except Exception as e: 
             logging.error(f"Pipeline failed: {e}", exc_info=True)
             self.update_status_on_error()
+            raise e
         finally:
             if self.on_finish: self.on_finish(success)
 
     def update_status_on_error(self):
-        """Finds the currently running step and marks it as failed."""
-        from main import PIPELINE_STEPS
-        for i in range(len(PIPELINE_STEPS)):
-            if hasattr(self.update_status, '__self__') and self.update_status.__self__.step_status_labels[i].cget("text") == "⏳":
-                self.update_status(i, "❌", 1.0); break
+        """No-op for headless mode. Errors are propagated and caught by the job manager."""
+        pass
 
     def _extract_voice_name(self, val): 
         return val.split(" — ")[0] if " — " in val else val

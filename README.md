@@ -1,180 +1,125 @@
-<p align="center">
-  <a href="https://naqashafzal.gumroad.com/coffee" target="_blank">
-    <img src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black" alt="Buy Me A Coffee">
-  </a>
-</p>
+# AI Content Studio 🎬🤖
 
-# 🤖 Nullpk AI Content Studio  
-**Your AI-Powered YouTube Studio**  
+**AI Content Studio** is a powerful, full-stack application designed to fully automate the creation of viral social media content. Whether you want to generate full AI-powered video podcasts from scratch or automatically extract viral TikToks from long-form YouTube videos, AI Content Studio provides a sleek, unified dashboard to manage your entire content pipeline.
 
-Welcome to **Nullpk AI Content Studio**, a powerful all-in-one application designed to automate the **entire lifecycle of YouTube video creation** using cutting-edge generative AI.  
+![AI Content Studio Dashboard](https://img.shields.io/badge/Status-Active-success) ![License](https://img.shields.io/badge/License-MIT-blue)
 
-This tool takes a single topic as input and orchestrates a complete pipeline: from **deep research & scriptwriting** to **voice generation, video creation, thumbnails, captions, and direct publishing**.  
-It’s your personal content studio — powered by AI.  
+## 🌟 Key Features
 
----
+### ✂️ Magic AI Clipper (OpusClip Clone)
+Convert any long-form YouTube video into viral, ready-to-post short-form content (TikToks, Reels, YouTube Shorts) in minutes.
+- **Smart AI Curation:** Uses Google's Gemini AI and OpenAI's Whisper transcriptions to analyze the video and automatically find the most engaging 30-60 second highlights.
+- **Automated Framing:** Automatically crops landscape (16:9) videos into vertical (9:16) format using FFmpeg.
+- **Dynamic Captions:** Burns professional, highly-accurate subtitles directly into the video.
+- **Custom Styling:** Fully control your caption aesthetics before generating. Choose your font (Arial, Roboto, Impact), dial in the exact pixel size, and apply custom color themes (e.g., Clean White, Viral Yellow, Neon Cyberpunk).
 
-## 👑 Creator  
-This application was created by **Naqash Afzal**.  
+### 🎙️ AI Podcast Generator
+Generate complete, multi-speaker podcast videos entirely from a single text prompt.
+- **Script Writing:** AI dynamically writes conversational, engaging podcast scripts.
+- **Voice Synthesis:** Realistic text-to-speech engine brings the hosts to life.
+- **Visuals & Assembly:** Automatically layers audio over dynamic background footage.
 
----
+### 📚 History & Projects Dashboard
+- Easily browse your previously generated Podcasts and Magic Clipper shorts.
+- Watch generated videos directly in the browser via an embedded video player.
+- 1-click downloads for videos and raw text scripts.
+- Safely delete and manage old projects to free up workspace storage.
 
-## 🔋 How to Use Tutorial:
--<a href="https://youtu.be/ZxYHexaSDwA?si=fhfWIJeohZ23fI12" > Full Video Tutorial </a>
+## 🛠️ Tech Stack
 
----
+### Frontend (Web UI)
+- **Framework:** Next.js (React)
+- **Styling:** Tailwind CSS + Glassmorphism UI
+- **Icons:** Lucide React
+- **Real-time:** WebSockets for live pipeline logging and progress bars
 
-## ✨ Key Features  
+### Backend (API Engine)
+- **Server:** FastAPI (Python)
+- **Video Processing:** FFmpeg (Core requirement for slicing, cropping, and caption burning)
+- **Downloading:** `yt-dlp` (For bypassing YouTube blocks and downloading media)
+- **Transcription:** OpenAI Whisper (Local, offline audio-to-text transcription)
+- **Subtitles:** `pysubs2` (For generating and styling `.ass` subtitle files)
+- **AI Brain:** Google Gemini API (For content curation, logic, and script writing)
 
-### 📝 Automated Research & Scripting  
-- **Deep Research**: Uses Google Search grounding for in-depth research.  
-- **News Integration**: Pulls live headlines via NewsAPI.  
-- **Fact-Checking & Revision**: Optional AI review for accuracy.  
-- **Dynamic Scriptwriting**: Generates scripts for podcasts, documentaries, stories & more.  
+## 🚀 Getting Started
 
-### 🎙️ AI Voice & Audio Generation  
-- **Multi-Speaker TTS**: Google’s latest models for natural host/guest voices.  
-- **Background Music**: Auto-mixes music for a professional sound.  
+### Prerequisites
+Before running the application, ensure you have the following installed on your system:
+1. **Python 3.10+**
+2. **Node.js (v18+)** & npm
+3. **FFmpeg** (Must be installed and added to your system's PATH variable)
+4. A **Google Gemini API Key** (Set via the UI Settings tab)
 
-### 🎬 Advanced Video & Visuals Production  
-- **AI Video Generation**: Background videos via Vertex AI (Imagen 2) & WaveSpeed AI.  
-- **Automated Thumbnails**: AI character + bold topic text (via ffmpeg).  
-- **Context-Aware Images**: Timed overlays & slideshow-style videos.  
+### Installation
 
-### 🚀 Publishing & SEO  
-- **Auto-Captioning**: Whisper generates styled `.ass` captions.  
-- **SEO Metadata**: Titles, descriptions & tags auto-generated.  
-- **Chapter Timestamps**: Script-based smart timestamping.  
-- **Direct Uploading**: Seamless upload to **YouTube & Facebook**.  
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/yourusername/AI-Content-Studio.git
+   cd AI-Content-Studio
+   ```
 
----
+2. **Setup the Python Backend:**
+   ```bash
+   # Create a virtual environment
+   python -m venv .venv
+   
+   # Activate it (Windows)
+   .venv\Scripts\activate
+   # Activate it (Mac/Linux)
+   source .venv/bin/activate
+   
+   # Install backend dependencies
+   pip install -r requirements.txt
+   
+   # Important Note: If you face issues with file uploads, ensure python-multipart is installed
+   pip install python-multipart
+   ```
 
-## 🛠️ Technology Stack  
+3. **Setup the Next.js Frontend:**
+   ```bash
+   cd web
+   npm install
+   ```
 
-- **Language**: Python  
-- **GUI**: CustomTkinter  
+### Running the Application
 
-### Core AI Models  
-- **Text & Research**: Google Gemini (gemini-2.5-flash)  
-- **TTS**: Google Gemini TTS  
-- **Images**: Google Vertex AI (Imagen 3)  
-- **Video**: Vertex AI (Imagen 2), WaveSpeed AI  
+You need to run both the backend and frontend servers simultaneously.
 
-### APIs & Libraries  
-- `google-generativeai`  
-- `google-cloud-aiplatform`  
-- `vertexai`  
-- `newsapi-python`  
-- `requests`  
-
-### Audio & Video Processing  
-- **ffmpeg** (Required)  
-- `openai-whisper`  
-- `pydub`  
-- `pysubs2`  
-
----
-
-## ⚙️ Installation & Setup  
-
-### 1. Prerequisites  
-- Python **3.10+** → [Download](https://www.python.org/)  
-- Git → [Download](https://git-scm.com/)  
-- FFmpeg → [Download](https://ffmpeg.org/)  
-  - Add `ffmpeg/bin` to your PATH.  
-
-### 2. Clone Repository  
+**1. Start the Backend API (from the root directory):**
 ```bash
-git clone https://github.com/your-username/Nullpk-Ai-Content-Studio.git
-cd Nullpk-Ai-Content-Studio
+python server/main.py
+# The FastAPI server will run on http://localhost:8008
 ```
 
-### 3. Virtual Environment  
+**2. Start the Frontend UI (from the `/web` directory):**
 ```bash
-python -m venv .venv
-
-# Activate
-# Windows
-.venv\Scripts\activate
-# macOS/Linux
-source .venv/bin/activate
+npm run dev
+# The Next.js app will run on http://localhost:3000
 ```
 
-### 4. Install Dependencies  
-```bash
-pip install -r requirements.txt
+Open your browser and navigate to `http://localhost:3000` to start creating!
+
+## 📁 Project Structure
+
+```
+AI-Content-Studio/
+├── server/
+│   ├── main.py                 # FastAPI application entry point
+│   ├── routers/                # API route handlers (clipper, generation, tools)
+│   └── core/                   # Background job queue, WebSockets, YouTube downloading
+├── web/
+│   ├── src/app/                # Next.js App Router (Pages for Clipper, History, Studio)
+│   └── src/components/         # Reusable React components
+├── pipeline.py                 # Core logic for Whisper transcription and Podcast Generation
+├── pipeline_shorts.py          # Core logic for the Magic Clipper (LLM extraction & FFmpeg)
+└── workspace/                  # Automatically generated folder where all outputs are saved
 ```
 
-### 5. Configuration  
-- On first run, a `config.json` will be created. Fill in your API keys:  
-  - **Gemini API Key** (Google AI Studio)  
-  - **GCP Project ID & Location**  
-  - **WaveSpeed AI Key** *(optional)*  
-  - **NewsAPI Key** *(optional)*  
+## ⚠️ Troubleshooting
 
-#### YouTube Upload Setup  
-1. Enable **YouTube Data API v3** in [Google Cloud Console](https://console.cloud.google.com/).  
-2. Create OAuth 2.0 credentials (Desktop App).  
-3. Download as `client_secrets.json` → place in root directory.  
+- **Clipper Audio is out of sync:** Ensure you are using the latest backend code. We force `-c:a aac` during FFmpeg extraction to prevent audio PTS drift.
+- **0.00s Clips generated:** This means the AI couldn't read the timestamps. Ensure `pipeline_shorts.py` is formatting the transcript chunks with `[start - end]` brackets.
+- **FFmpeg errors / "Subtitles not found":** Ensure FFmpeg is installed globally on your machine and that `ffmpeg` is a recognized terminal command.
 
-#### Assets Folder  
-Create an `assets` folder in the root:  
-- `font.ttf` → Font for thumbnails.  
-- `background_music.mp3` → Music for videos.  
-
----
-
-## ▶️ Run the Application  
-```bash
-python main.py
-```
-The GUI will launch.  
-
----
-
-## 🚀 Usage  
-1. Enter a **topic**.  
-2. Select **style & options** (Podcast, Documentary, Captions, Thumbnails, etc.).  
-3. Configure **API keys, voices & prompts** in Settings.  
-4. Click **🚀 Run Pipeline**.  
-5. Review SEO metadata in **Publish tab** → upload directly.  
-
----
-
-## 🤝 Contributing  
-Contributions are welcome!  
-
-1. Fork the repo  
-2. Create a branch (`git checkout -b feature/AmazingFeature`)  
-3. Commit (`git commit -m 'Add some AmazingFeature'`)  
-4. Push (`git push origin feature/AmazingFeature`)  
-5. Open a Pull Request  
-
----
-
-## 📄 License  
-This project is licensed under the **MIT License** – see [LICENSE](LICENSE).  
-
----
-
-## 🙏 Acknowledgments  
-- **Google AI** for Gemini & Vertex AI models.  
-- **FFmpeg** & **Whisper** for amazing open-source tools.  
-- **CustomTkinter** for GUI simplicity.  
-
----
-
-
-## ☕ Support / Coffee
-
-If you enjoy this tool and want to support continued development:
-
-<p align="center">
-  <a href="https://naqashafzal.gumroad.com/coffee" target="_blank">
-    <img src="https://img.shields.io/badge/☕-Support%20My%20Work-FFDD00?style=for-the-badge" alt="Buy Me A Coffee">
-  </a>
-</p>
-
----
-
-**Author:** Naqash Afzal — *Nullpk Content Automation*
+## 📄 License
+This project is licensed under the MIT License.

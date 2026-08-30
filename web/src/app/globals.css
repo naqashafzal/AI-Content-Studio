@@ -1,0 +1,89 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --bg-main: #060608;
+    --bg-glass: rgba(20, 20, 25, 0.6);
+    --border-glass: rgba(255, 255, 255, 0.08);
+    --accent: #66fcf1;
+    --accent-glow: rgba(102, 252, 241, 0.4);
+  }
+
+  body {
+    @apply bg-[var(--bg-main)] text-zinc-100 font-sans antialiased selection:bg-[var(--accent-glow)] selection:text-[var(--accent)];
+    /* Subtle background grid pattern for premium feel */
+    background-image: linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+    background-size: 40px 40px;
+    background-position: center center;
+  }
+}
+
+/* Premium Glass Card */
+.glass-card {
+  @apply bg-[var(--bg-glass)] border border-[var(--border-glass)] rounded-2xl backdrop-blur-xl shadow-lg relative overflow-hidden;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
+}
+
+/* Subtle inner glow for cards */
+.glass-card::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.glass-card-hover:hover {
+  @apply border-white/20 shadow-[0_8px_30px_rgb(0,0,0,0.5)];
+  transform: translateY(-2px);
+}
+
+.glass-card-hover:hover::before {
+  opacity: 1;
+}
+
+/* Input/select fields styling */
+.modern-input {
+  @apply w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-zinc-100 transition-all focus:border-[var(--accent)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-glow)] placeholder:text-zinc-600 shadow-inner;
+}
+
+.modern-select {
+  @apply w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-zinc-100 transition-all focus:border-[var(--accent)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-glow)] hover:border-white/30 cursor-pointer appearance-none shadow-inner;
+}
+
+/* Modern Segmented Tab Container */
+.tab-container {
+  @apply flex flex-wrap gap-1 p-1 bg-black/50 border border-white/10 rounded-xl backdrop-blur-md;
+}
+
+/* Modern Tab Button */
+.tab-button {
+  @apply flex-1 py-2 px-4 text-xs font-bold rounded-lg transition-all duration-300 text-zinc-500 hover:text-zinc-300;
+}
+.tab-button-active {
+  @apply bg-white/10 text-white shadow-md border border-white/5;
+}
+
+/* Advanced Glowing Button */
+.btn-primary {
+  @apply w-full py-3.5 bg-[var(--accent)] text-black font-extrabold rounded-xl transition-all flex items-center justify-center gap-2;
+  box-shadow: 0 0 15px var(--accent-glow);
+}
+.btn-primary:hover {
+  @apply bg-[#8efcf4] scale-[1.02];
+  box-shadow: 0 0 25px rgba(102, 252, 241, 0.6);
+}
+.btn-primary:active {
+  @apply scale-95;
+}
+
+/* Hide scrollbar */
+.scrollbar-hide::-webkit-scrollbar {
+    display: none;
+}
+.scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
