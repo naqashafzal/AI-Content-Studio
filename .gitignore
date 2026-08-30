@@ -95,3 +95,23 @@ web/build/
 *.DS_Store
 Thumbs.db
 desktop.ini
+
+# ====================
+# Specific Generated Folders
+# ====================
+Dajjal/
+Demon/
+Kids/
+Want To Win You Need To Fight/
+agent_workspace/
+
+# ====================
+# Temp Scripts & Accidental Files
+# ====================
+fix.py
+generate_pages.py
+recover2.py
+recover_tsx.py
+test_clipper.py
+package-lock.json
+login_videofx.py
