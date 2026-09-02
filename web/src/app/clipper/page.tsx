@@ -21,9 +21,9 @@ export default function ClipperPage() {
   const [editingClipIndex, setEditingClipIndex] = useState<number | null>(null);
   
   // Phase 5 Publishing state
-  const [publishModal, setPublishModal] = useState<{path: string, defaultTitle: string} | null>(null);
+  const [publishModal, setPublishModal] = useState<{path: string, defaultTitle: string, defaultDesc: string, defaultTags: string} | null>(null);
   const [pubTitle, setPubTitle] = useState("");
-  const [pubDesc, setPubDesc] = useState("#Shorts #Viral");
+  const [pubDesc, setPubDesc] = useState("");
   const [pubTags, setPubTags] = useState("");
   const [pubStatus, setPubStatus] = useState("idle");
   
@@ -316,13 +316,21 @@ export default function ClipperPage() {
                         {selectedClipIndices.has(i) ? <CheckCircle2 className="h-6 w-6 text-[#66fcf1]" /> : <Circle className="h-6 w-6 text-zinc-500" />}
                       </div>
                       <div className="flex-1">
-                        <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center justify-between mb-3">
                           <h3 className="font-bold text-white text-lg">{clip.title}</h3>
-                          <span className="bg-[#66fcf1]/20 text-[#66fcf1] px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap">
-                            Score: {clip.score}/100
-                          </span>
+                          <div className="flex gap-2">
+                            <span className="bg-[#66fcf1]/10 border border-[#66fcf1]/30 text-[#66fcf1] px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider">
+                              Hook: {clip.hook_score || clip.score}/100
+                            </span>
+                            <span className="bg-purple-500/10 border border-purple-500/30 text-purple-400 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider">
+                              Retain: {clip.retention_score || clip.score}/100
+                            </span>
+                            <span className="bg-white/10 text-white px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider">
+                              Overall: {clip.score}/100
+                            </span>
+                          </div>
                         </div>
-                        <p className="text-sm text-zinc-400 mb-2">{clip.reason}</p>
+                        <p className="text-sm text-zinc-400 mb-3 border-l-2 border-[#66fcf1] pl-3 py-1 bg-white/5 rounded-r">{clip.reason}</p>
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3 text-xs font-bold text-zinc-500">
                               <span>{clip.start}s - {clip.end}s</span>
@@ -377,8 +385,15 @@ export default function ClipperPage() {
                             </a>
                             <button 
                               onClick={() => {
-                                setPublishModal({path: clip.path, defaultTitle: clip.title});
-                                setPubTitle(clip.title);
+                                setPublishModal({
+                                  path: clip.path, 
+                                  defaultTitle: clip.seo_title || clip.title,
+                                  defaultDesc: clip.seo_description || "",
+                                  defaultTags: clip.seo_tags || ""
+                                });
+                                setPubTitle(clip.seo_title || clip.title);
+                                setPubDesc(clip.seo_description || "");
+                                setPubTags(clip.seo_tags || "");
                               }}
                               className="flex-1 py-2 bg-[#66fcf1] hover:bg-[#45f3e5] text-black rounded-lg flex items-center justify-center gap-2 text-xs font-bold transition-all"
                             >

@@ -135,31 +135,53 @@ def generate_captions(audio_file, captions_file, language: str, style_opts: dict
                 "HACK": "🛠️", "WOW": "😲"
             }
             
-            highlight_color = "{\\c&H00FFFF&}" # Yellow in ASS (BBGGRR)
+            primary = style_opts.get("primarycolor", pysubs2.Color(0, 255, 255, 255))
+            active_color = f"{{\\c&H{primary.b:02X}{primary.g:02X}{primary.r:02X}&}}"
+            inactive_color = "{\\c&HFFFFFF&}"
             
+            # Group into lines of ~4 words
+            chunks = []
+            current_chunk = []
             for word in all_word_timestamps:
-                start_ms = int(word['start'] * 1000)
-                end_ms   = int(word['end']   * 1000)
+                raw = word['word'].strip().upper()
+                if not raw: continue
+                current_chunk.append(word)
+                # break chunk if 4 words reached or there is a pause > 0.5s
+                if len(current_chunk) >= 4 or (word['end'] - word['start'] > 0.5):
+                    chunks.append(current_chunk)
+                    current_chunk = []
+            if current_chunk:
+                chunks.append(current_chunk)
                 
-                raw_text = word['word'].strip().upper()
-                clean_word = re.sub(r'[^A-Z]', '', raw_text) # strip punctuation for matching
-                
-                if not raw_text:
-                    continue
+            for chunk in chunks:
+                for i, active_word in enumerate(chunk):
+                    w_start_ms = int(active_word['start'] * 1000)
+                    w_end_ms = int(active_word['end'] * 1000)
                     
-                final_text = raw_text
-                
-                # Apply Dynamic Styling
-                if clean_word in emojis:
-                    # Highlight keyword and append emoji
-                    final_text = f"{highlight_color}{raw_text} {emojis[clean_word]}"
-                
-                subs.append(pysubs2.SSAEvent(
-                    start=pysubs2.make_time(ms=start_ms),
-                    end=pysubs2.make_time(ms=end_ms),
-                    text=final_text,
-                    style="Default"
-                ))
+                    line_parts = []
+                    for j, w in enumerate(chunk):
+                        raw_text = w['word'].strip().upper()
+                        clean = re.sub(r'[^A-Z]', '', raw_text)
+                        
+                        part = raw_text
+                        if clean in emojis:
+                            part = f"{part} {emojis[clean]}"
+                            
+                        if j == i:
+                            # Highlight active word
+                            part = f"{active_color}{part}{{\\r}}"
+                        else:
+                            # Inactive words are white
+                            part = f"{inactive_color}{part}{{\\r}}"
+                            
+                        line_parts.append(part)
+                        
+                    subs.append(pysubs2.SSAEvent(
+                        start=pysubs2.make_time(ms=w_start_ms),
+                        end=pysubs2.make_time(ms=w_end_ms),
+                        text=" ".join(line_parts),
+                        style="Default"
+                    ))
                 
             subs.save(captions_file)
             logging.info(f"Captions file saved: {captions_file} ({len(subs)} events)")

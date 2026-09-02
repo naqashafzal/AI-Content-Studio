@@ -29,45 +29,85 @@ def fetch_b_roll_video(query: str, api_key: str, output_path: str) -> bool:
         logging.error(f"Failed to fetch B-Roll: {e}")
     return False
 
-def get_dynamic_crop_filter(video_path: str, start_time: float) -> str:
-    """Uses OpenCV to find the speaker's face and returns a dynamic FFmpeg crop string."""
-    default_crop = "crop=ih*9/16:ih"
-    try:
-        cap = cv2.VideoCapture(video_path)
-        if not cap.isOpened():
-            return default_crop
+def render_scene_aware_clip(video_path: str, start_time: float, end_time: float, out_path: str):
+    """OpusClip-style AI Active Speaker Tracking using Scene-Aware Cropping."""
+    import tempfile
+    
+    with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp:
+        segment_path = tmp.name
+        
+    subprocess.run([
+        "ffmpeg", "-y", "-ss", str(start_time), "-to", str(end_time),
+        "-i", video_path, "-c:v", "libx264", "-preset", "ultrafast", "-c:a", "aac", segment_path
+    ], check=True, capture_output=True)
+    
+    cap = cv2.VideoCapture(segment_path)
+    fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    target_w = int(height * 9 / 16)
+    
+    face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+    
+    cuts = []
+    current_cut_start = 0.0
+    current_crop_x = None
+    
+    frame_idx = 0
+    skip_frames = int(fps / 2) # Sample twice per second
+    
+    while True:
+        cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
+        ret, frame = cap.read()
+        if not ret: break
+        
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(50, 50))
+        
+        if len(faces) > 0:
+            largest_face = max(faces, key=lambda rect: rect[2] * rect[3])
+            x, y, w, h = largest_face
+            crop_x = max(0, min((x + w // 2) - target_w // 2, width - target_w))
             
-        fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
-        cap.set(cv2.CAP_PROP_POS_FRAMES, int(start_time * fps))
+            if current_crop_x is None:
+                current_crop_x = crop_x
+            elif abs(crop_x - current_crop_x) > (width * 0.15):
+                cut_time = frame_idx / fps
+                cuts.append({"start": current_cut_start, "end": cut_time, "crop_x": current_crop_x})
+                current_cut_start = cut_time
+                current_crop_x = crop_x
+                    
+        frame_idx += skip_frames
         
-        face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-        
-        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        target_w = int(height * 9 / 16)
-        
-        # Check next 10 frames for a face
-        for _ in range(10):
-            ret, frame = cap.read()
-            if not ret: break
-                
-            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+    cap.release()
+    
+    duration = end_time - start_time
+    if current_crop_x is None:
+        current_crop_x = (width - target_w) // 2
+    cuts.append({"start": current_cut_start, "end": duration, "crop_x": current_crop_x})
+    
+    if len(cuts) == 1:
+        subprocess.run([
+            "ffmpeg", "-y", "-i", segment_path,
+            "-vf", f"crop={target_w}:{height}:{int(cuts[0]['crop_x'])}:0,scale=720:1280",
+            "-c:v", "libx264", "-c:a", "copy", out_path
+        ], check=True, capture_output=True)
+    else:
+        filter_parts = []
+        concat_inputs = ""
+        for i, cut in enumerate(cuts):
+            filter_parts.append(f"[0:v]trim=start={cut['start']}:end={cut['end']},setpts=PTS-STARTPTS,crop={target_w}:{height}:{int(cut['crop_x'])}:0,scale=720:1280[v{i}]")
+            concat_inputs += f"[v{i}]"
             
-            if len(faces) > 0:
-                largest_face = max(faces, key=lambda rect: rect[2] * rect[3])
-                x, y, w, h = largest_face
-                face_center_x = x + (w // 2)
-                crop_x = face_center_x - (target_w // 2)
-                crop_x = max(0, min(crop_x, width - target_w))
-                cap.release()
-                return f"crop={target_w}:{height}:{int(crop_x)}:0"
-                
-        cap.release()
-    except Exception as e:
-        logging.error(f"Face tracking error: {e}")
+        filter_parts.append(f"{concat_inputs}concat=n={len(cuts)}:v=1:a=0[outv]")
+        subprocess.run([
+            "ffmpeg", "-y", "-i", segment_path,
+            "-filter_complex", ";".join(filter_parts),
+            "-map", "[outv]", "-map", "0:a",
+            "-c:v", "libx264", "-c:a", "copy", out_path
+        ], check=True, capture_output=True)
         
-    return default_crop
+    os.remove(segment_path)
 
 def analyze_youtube_video(url: str, job_id: str, update_job_callback, num_clips: int = 10):
     try:
@@ -108,18 +148,32 @@ def analyze_youtube_video(url: str, job_id: str, update_job_callback, num_clips:
         
         update_job_callback(job_id, step="AI Finding Viral Clips", progress=0.5)
         
-        prompt = f"""You are an elite, highly intelligent Social Media Marketer and Content Curator (like OpusClip, but smarter).
+        prompt = f"""You are an elite, highly intelligent Social Media Marketer and Content Curator.
 Your sole objective is to analyze the following YouTube video transcript and extract the {num_clips} most compelling, high-retention segments (strictly between 30 and 60 seconds).
-These clips MUST act as powerful hooks or "trailers" that make viewers instantly curious, forcing them to go watch the full video!
 
 CRITICAL CRITERIA FOR CLIPS:
-1. The Hook: The clip must start with an immediate, scroll-stopping statement, shocking fact, or controversial opinion.
-2. The Value / Tension: It must build extreme curiosity, tell a crazy story, or drop high-value knowledge.
-3. The Cliffhanger: The clip should ideally end on a cliffhanger, unresolved question, or mind-blowing conclusion that leaves the viewer desperately wanting more context from the full video.
+1. The Hook: Immediate, scroll-stopping statement.
+2. The Value: Builds extreme curiosity or drops high-value knowledge.
+3. The Cliffhanger: Ends on a cliffhanger wanting more.
 
-Return your response ONLY as a JSON list of objects, with no markdown formatting or extra text.
-Each object must have "start" (seconds), "end" (seconds), "title" (clickbaity title), "score" (integer 1-100 indicating virality potential), and "reason" (short 1-sentence explanation of why it will go viral).
-Do not hallucinate timestamps. Use the exact timestamps provided in the transcript brackets [start - end].
+Return your response ONLY as a JSON list of objects, with no markdown formatting.
+Each object must match this schema:
+{{
+  "start": float (seconds),
+  "end": float (seconds),
+  "title": "Clickbaity short title",
+  "score": int (1-100 overall virality),
+  "hook_score": int (1-100),
+  "retention_score": int (1-100),
+  "reason": "1 sentence why it's viral",
+  "seo_title": "Highly optimized YouTube Shorts Title #shorts",
+  "seo_description": "Engaging description...",
+  "seo_tags": "shorts, viral, podcast",
+  "broll": [
+    {{"start_offset": int (seconds from clip start), "end_offset": int, "subject": "visual search term (e.g. hacking, money)"}}
+  ]
+}}
+Do not hallucinate timestamps. The 'broll' array should contain 1 to 3 moments where a visual overlay would increase retention.
 
 Transcript snippet (first 15000 chars):
 {full_transcript[:15000]}
@@ -169,43 +223,53 @@ def render_youtube_clips(job_id: str, video_path: str, selected_clips: list, upd
                 
             out_path = os.path.join(output_dir, clip_name)
             
-            # Detect face and get dynamic crop filter
-            crop_filter = get_dynamic_crop_filter(video_path, start)
+            # Use OpusClip-style AI Active Speaker Tracking
+            render_scene_aware_clip(video_path, start, end, out_path)
             
-            # Use FFmpeg to slice AND crop dynamically (and force 720x1280 resolution)
-            subprocess.run([
-                "ffmpeg", "-y", "-ss", str(start), "-to", str(end),
-                "-i", video_path,
-                "-vf", f"{crop_filter},scale=720:1280",
-                "-c:v", "libx264", "-c:a", "aac",
-                out_path
-            ], check=True, capture_output=True)
-            
-            # --- PHASE 4: AUTO B-ROLL INJECTION ---
+            # --- PHASE 4: DYNAMIC B-ROLL TIMELINE ---
             try:
-                broll_prompt = f"Analyze this clip title: '{title}'. Determine a 1-2 word visual subject for B-Roll. If it's a person talking about abstract concepts, return 'none'. Otherwise, return the exact search term (e.g., 'space', 'bitcoin', 'running'). Return ONLY the search term in lowercase without punctuation."
-                broll_subject = client._generate_text(broll_prompt).strip().lower()
-                
-                has_broll = False
-                b_roll_path = os.path.join(output_dir, f"broll_{idx}.mp4")
                 pixabay_key = config.get("PIXABAY_API_KEY", "")
+                broll_timeline = clip.get("broll", [])
                 
-                if broll_subject and broll_subject != "none" and pixabay_key:
-                    has_broll = fetch_b_roll_video(broll_subject, pixabay_key, b_roll_path)
-                    
-                if has_broll:
-                    b_roll_overlay_path = os.path.join(output_dir, f"broll_overlay_{idx}.mp4")
-                    # Overlay B-Roll from seconds 2 to 5 over the 720x1280 base video
-                    subprocess.run([
-                        "ffmpeg", "-y", "-i", out_path, "-i", b_roll_path,
-                        "-filter_complex", 
-                        "[1:v]crop=ih*9/16:ih,scale=720:1280[broll];[0:v][broll]overlay=enable='between(t,2,5)'",
-                        "-c:a", "copy",
-                        b_roll_overlay_path
-                    ], check=True, capture_output=True)
-                    out_path = b_roll_overlay_path
+                if pixabay_key and broll_timeline:
+                    current_vid = out_path
+                    for b_idx, b_item in enumerate(broll_timeline):
+                        b_subj = str(b_item.get("subject", "")).lower()
+                        b_start = b_item.get("start_offset", 2)
+                        b_end = b_item.get("end_offset", 5)
+                        
+                        if not b_subj or b_subj == "none": continue
+                        
+                        b_roll_path = os.path.join(output_dir, f"broll_{idx}_{b_idx}.mp4")
+                        if fetch_b_roll_video(b_subj, pixabay_key, b_roll_path):
+                            b_roll_overlay_path = os.path.join(output_dir, f"broll_overlay_{idx}_{b_idx}.mp4")
+                            subprocess.run([
+                                "ffmpeg", "-y", "-i", current_vid, "-i", b_roll_path,
+                                "-filter_complex", 
+                                f"[1:v]crop=ih*9/16:ih,scale=720:1280[broll];[0:v][broll]overlay=enable='between(t,{b_start},{b_end})'",
+                                "-c:a", "copy",
+                                b_roll_overlay_path
+                            ], check=True, capture_output=True)
+                            current_vid = b_roll_overlay_path
+                    out_path = current_vid
             except Exception as e:
-                logging.error(f"B-Roll injection failed for {clip_name}: {e}")
+                logging.error(f"Dynamic B-Roll injection failed for {clip_name}: {e}")
+                
+            # --- PHASE 4.5: AUDIO DUCKING (BGM) ---
+            try:
+                bgm_path = "workspace/bgm.mp3"
+                if os.path.exists(bgm_path):
+                    bgm_out_path = os.path.join(output_dir, f"bgm_{clip_name}")
+                    subprocess.run([
+                        "ffmpeg", "-y", "-i", out_path, "-i", bgm_path,
+                        "-filter_complex",
+                        "[1:a]volume=0.08[bgm];[0:a][bgm]amix=inputs=2:duration=first:dropout_transition=2",
+                        "-c:v", "copy",
+                        bgm_out_path
+                    ], check=True, capture_output=True)
+                    out_path = bgm_out_path
+            except Exception as e:
+                logging.error(f"Audio Ducking failed for {clip_name}: {e}")
             
             theme = config.get("CAPTION_THEME", "default")
             font = config.get("CAPTION_FONT", "Arial")
@@ -253,7 +317,10 @@ def render_youtube_clips(job_id: str, video_path: str, selected_clips: list, upd
             
             generated_clips.append({
                 "title": title,
-                "path": final_out_path.replace("\\", "/")
+                "path": final_out_path.replace("\\", "/"),
+                "seo_title": clip.get("seo_title", title),
+                "seo_description": clip.get("seo_description", ""),
+                "seo_tags": clip.get("seo_tags", ""),
             })
             
             progress = 0.7 + (0.3 * ((idx + 1) / total_clips))

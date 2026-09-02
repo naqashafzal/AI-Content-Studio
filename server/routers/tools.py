@@ -14,14 +14,14 @@ TOOLS_DIR = "workspace/tools_output"
 os.makedirs(TOOLS_DIR, exist_ok=True)
 
 @router.post("/caption")
-async def generate_captions(
+def generate_captions(
     file: UploadFile = File(...),
     style: str = Form("Podcast"),
     language: str = Form("English")
 ):
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp_in:
-            content = await file.read()
+            content = file.file.read()
             tmp_in.write(content)
             tmp_in_path = tmp_in.name
             
@@ -52,13 +52,13 @@ async def generate_captions(
 
 
 @router.post("/convert")
-async def convert_aspect_ratio(
+def convert_aspect_ratio(
     file: UploadFile = File(...),
     target_ar: str = Form("16:9")
 ):
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp_in:
-            content = await file.read()
+            content = file.file.read()
             tmp_in.write(content)
             tmp_in_path = tmp_in.name
             
