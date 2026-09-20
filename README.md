@@ -2,9 +2,7 @@
   <h1>🎬 AI Content Studio (Major Update)</h1>
   <p><strong>The World's Best Open-Source AI Video & Podcast Generator</strong></p>
   
-  [![YouTube](https://img.shields.io/badge/Subscribe_on-YouTube-FF0000?style=for-the-badge&logo=youtube)](https://www.youtube.com/@naqashai)
-  [![Patreon](https://img.shields.io/badge/Support_on-Patreon-f96854?style=for-the-badge&logo=patreon)](https://www.patreon.com/c/naqashafzal)
-  [![Instagram](https://img.shields.io/badge/Follow_on-Instagram-E4405F?style=for-the-badge&logo=instagram)](https://www.instagram.com/naqashafzal/)
+  [![Instagram](https://img.shields.io/badge/Follow_on-Instagram-E4405F?style=for-the-badge&logo=instagram)](https://www.instagram.com/wolkannn_/)
   ![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)
 </div>
 
@@ -12,7 +10,7 @@
 
 **AI Content Studio** is the ultimate, fully-automated platform designed to generate viral social media content at the click of a button. Whether you want to generate full AI-powered video podcasts from scratch or automatically extract viral TikToks from long-form YouTube videos, AI Content Studio provides a sleek, unified dashboard to manage your entire content pipeline.
 
-If you love this project and want to support its development, please consider helping out on **[Patreon](https://www.patreon.com/c/naqashafzal)** or follow my journey on **[Instagram](https://www.instagram.com/naqashafzal/)**!
+If you love this project and want to support its development, please consider helping out on or follow my journey on **[Instagram](https://www.instagram.com/wolkannn_/)**!
 
 ## 🌟 Key Features (Complete Suite)
 
@@ -57,11 +55,7 @@ Generate complete, multi-speaker podcast videos entirely from a single text prom
 🔥 **NEW FULL DETAILED VIDEO TUTORIAL COMING SOON!** 🔥
 A complete step-by-step video for this massively updated version is currently in the works. Make sure to **[Subscribe to our YouTube Channel (@naqashai)](https://www.youtube.com/@naqashai)** so you don't miss it when it drops!
 
-**Old Version References:**
-- If you are looking for the original codebase, you can find the old version safely stored in the GitHub Commits History.
-- 👉 **<a href="https://youtu.be/9JpSs57RjbY?si=5ihW2Pl_JFtwAz45">Watch the Old Version Video Tutorial</a>**
 
----
 
 ## 🛠️ Tech Stack & Architecture
 
@@ -143,12 +137,6 @@ Open your browser and navigate to `http://localhost:3000` to start creating!
 
 ---
 
-## 🤝 Support & Connect
-
-Building and maintaining this open-source project takes a lot of time and effort! If this tool has helped you grow your channels, automate your workflows, or make money, please consider supporting me:
-
-- 💖 **Support on Patreon:** [patreon.com/c/naqashafzal](https://www.patreon.com/c/naqashafzal)
-- 📸 **Follow on Instagram:** [@naqashafzal](https://www.instagram.com/naqashafzal/)
 
 Your support helps me keep updating the tool, adding new AI features, and keeping the core open-source for everyone!
 
