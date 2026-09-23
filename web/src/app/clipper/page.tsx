@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { MonitorPlay, Scissors, Loader2, Play, Download, Settings2, ScissorsSquare, Share2, CheckCircle2, Circle, Edit2 } from "lucide-react";
+import { MonitorPlay, Scissors, Loader2, Play, Download, Settings2, ScissorsSquare, Share2, CheckCircle2, Circle, Edit2, Upload } from "lucide-react";
 import TimelineEditor from "@/components/TimelineEditor";
 
 export default function ClipperPage() {
@@ -13,6 +13,10 @@ export default function ClipperPage() {
   const [logs, setLogs] = useState<{message: string, time: string}[]>([]);
   const [clips, setClips] = useState<{title: string, path: string}[]>([]);
   const [numClips, setNumClips] = useState(3);
+  
+  // Local File vs YouTube
+  const [inputType, setInputType] = useState<"youtube" | "local">("youtube");
+  const [file, setFile] = useState<File | null>(null);
   
   // Phase 1 UI state
   const [analyzedClips, setAnalyzedClips] = useState<any[]>([]);
@@ -88,9 +92,16 @@ export default function ClipperPage() {
 
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!url || !url.includes("youtu")) {
-      alert("Please enter a valid YouTube URL");
-      return;
+    if (inputType === "youtube") {
+      if (!url || !url.includes("youtu")) {
+        alert("Please enter a valid YouTube URL");
+        return;
+      }
+    } else {
+      if (!file) {
+        alert("Please select a video file");
+        return;
+      }
     }
     
     setStatus("processing");
@@ -101,14 +112,26 @@ export default function ClipperPage() {
     setLogs([{ message: "Queuing analysis...", time: new Date().toLocaleTimeString() }]);
     
     try {
-      const res = await fetch("http://localhost:8008/api/clipper/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          url: url, 
-          num_clips: numClips
-        })
-      });
+      let res;
+      if (inputType === "youtube") {
+        res = await fetch("http://localhost:8008/api/clipper/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            url: url, 
+            num_clips: numClips
+          })
+        });
+      } else {
+        const formData = new FormData();
+        formData.append("file", file!);
+        formData.append("num_clips", numClips.toString());
+
+        res = await fetch("http://localhost:8008/api/clipper/analyze_local", {
+          method: "POST",
+          body: formData
+        });
+      }
       
       const data = await res.json();
       if (!res.ok) {
@@ -208,19 +231,54 @@ export default function ClipperPage() {
         <div className="lg:col-span-4 flex flex-col space-y-6">
           <div className="glass-card p-6">
             <form onSubmit={handleGenerate} className="space-y-6">
-              <div>
-                <label className="block text-xs font-bold text-zinc-500 mb-2 uppercase tracking-wider flex items-center gap-2">
-                  <MonitorPlay className="h-4 w-4" /> YouTube Video URL
-                </label>
-                <input 
-                  type="text" 
-                  value={url}
-                  onChange={e => setUrl(e.target.value)}
-                  placeholder="https://www.youtube.com/watch?v=..."
-                  className="modern-input"
-                  disabled={status === "processing"}
-                />
+              <div className="flex bg-black/40 rounded-lg p-1 border border-white/10 mb-6">
+                <button
+                  type="button"
+                  onClick={() => setInputType("youtube")}
+                  className={`flex-1 py-2 text-sm font-bold rounded-md transition-all ${inputType === "youtube" ? "bg-[#66fcf1] text-black shadow-md" : "text-zinc-500 hover:text-white"}`}
+                >
+                  YouTube URL
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setInputType("local")}
+                  className={`flex-1 py-2 text-sm font-bold rounded-md transition-all ${inputType === "local" ? "bg-[#66fcf1] text-black shadow-md" : "text-zinc-500 hover:text-white"}`}
+                >
+                  Local Video
+                </button>
               </div>
+
+              {inputType === "youtube" ? (
+                <div>
+                  <label className="block text-xs font-bold text-zinc-500 mb-2 uppercase tracking-wider flex items-center gap-2">
+                    <MonitorPlay className="h-4 w-4" /> YouTube Video URL
+                  </label>
+                  <input 
+                    type="text" 
+                    value={url}
+                    onChange={e => setUrl(e.target.value)}
+                    placeholder="https://www.youtube.com/watch?v=..."
+                    className="modern-input"
+                    disabled={status === "processing"}
+                  />
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-xs font-bold text-zinc-500 mb-2 uppercase tracking-wider flex items-center gap-2">
+                    <Upload className="h-4 w-4" /> Local Video File
+                  </label>
+                  <div className="border-2 border-dashed border-white/10 rounded-xl p-4 flex flex-col items-center justify-center bg-black/20 hover:bg-black/40 transition-colors">
+                    <input 
+                      type="file" 
+                      accept="video/*"
+                      onChange={e => e.target.files && setFile(e.target.files[0])}
+                      className="text-sm text-zinc-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-[#66fcf1]/10 file:text-[#66fcf1] hover:file:bg-[#66fcf1]/20 cursor-pointer"
+                      disabled={status === "processing"}
+                    />
+                  </div>
+                  {file && <p className="text-[10px] text-zinc-500 mt-2 text-center truncate">{file.name} ({(file.size / (1024 * 1024)).toFixed(2)} MB)</p>}
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs font-bold text-zinc-500 mb-2 uppercase tracking-wider flex items-center justify-between">

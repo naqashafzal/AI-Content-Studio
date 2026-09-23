@@ -109,15 +109,19 @@ def render_scene_aware_clip(video_path: str, start_time: float, end_time: float,
         
     os.remove(segment_path)
 
-def analyze_youtube_video(url: str, job_id: str, update_job_callback, num_clips: int = 10):
+def analyze_video(source: str, is_local: bool, job_id: str, update_job_callback, num_clips: int = 10):
     try:
         config = load_config()
         client = GoogleClient(config)
         output_dir = os.path.join("workspace", f"clipper_{job_id}")
         os.makedirs(output_dir, exist_ok=True)
         
-        update_job_callback(job_id, step="Downloading Video", progress=0.1)
-        video_path = download_youtube_video(url, output_dir)
+        if is_local:
+            update_job_callback(job_id, step="Processing Local Video", progress=0.1)
+            video_path = source
+        else:
+            update_job_callback(job_id, step="Downloading Video", progress=0.1)
+            video_path = download_youtube_video(source, output_dir)
         
         update_job_callback(job_id, step="Transcribing Video", progress=0.3)
         # Transcribe without generating an ASS file first, just to get the transcript
