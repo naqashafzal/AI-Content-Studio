@@ -23,6 +23,10 @@ export default function ClipperPage() {
   const [logs, setLogs] = useState<{message: string, time: string}[]>([]);
   const [clips, setClips] = useState<GeneratedClip[]>([]);
   const [numClips, setNumClips] = useState(3);
+  const [minDuration, setMinDuration] = useState(15);
+  const [maxDuration, setMaxDuration] = useState(60);
+  const [language, setLanguage] = useState("auto");
+  const [failedClips, setFailedClips] = useState<{title: string, error: string}[]>([]);
   
   // Local File vs YouTube
   const [inputType, setInputType] = useState<"youtube" | "local">("youtube");
@@ -84,6 +88,7 @@ export default function ClipperPage() {
               } else if (res.type === "finished") {
                 setStatus("completed");
                 setClips(res.clips);
+                setFailedClips(res.failed || []);
               }
             } catch (e) {
               console.error("Failed to parse clips result", e);
@@ -129,13 +134,19 @@ export default function ClipperPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ 
             url: url, 
-            num_clips: numClips
+            num_clips: numClips,
+            min_duration: minDuration,
+            max_duration: maxDuration,
+            language: language
           })
         });
       } else {
         const formData = new FormData();
         formData.append("file", file!);
         formData.append("num_clips", numClips.toString());
+        formData.append("min_duration", minDuration.toString());
+        formData.append("max_duration", maxDuration.toString());
+        formData.append("language", language);
 
         res = await fetch(`${API_BASE_URL}/api/clipper/analyze_local`, {
           method: "POST",
@@ -145,7 +156,7 @@ export default function ClipperPage() {
       
       const data = await res.json();
       if (!res.ok) {
-        alert("Failed to start analysis: " + data.detail);
+        alert("Failed to start analysis: " + (typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail)));
         setStatus("idle");
       } else {
         setJobId(data.job_id);
@@ -165,7 +176,7 @@ export default function ClipperPage() {
     const selected = analyzedClips.filter((_, i) => selectedClipIndices.has(i));
     
     try {
-      await fetch(`${API_BASE_URL}/api/clipper/render`, {
+      const res = await fetch(`${API_BASE_URL}/api/clipper/render`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
@@ -174,8 +185,14 @@ export default function ClipperPage() {
           selected_clips: selected
         })
       });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert("Render failed to start: " + (data.detail || res.statusText));
+        setStatus("selection");
+      }
     } catch (err) {
       alert("API Error");
+      setStatus("selection");
     }
   };
 
@@ -227,7 +244,7 @@ export default function ClipperPage() {
   };
 
   return (
-    <div className="max-w-[1400px] mx-auto animate-in fade-in duration-500 flex flex-col h-[calc(100vh-6rem)]">
+    <div className="max-w-[1400px] mx-auto animate-in fade-in duration-500 flex flex-col min-h-[calc(100vh-6rem)] pb-16">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-white tracking-tight flex items-center gap-3">
           <Scissors className="h-8 w-8 text-[#66fcf1]" /> Magic AI Clipper 2.0
@@ -235,7 +252,7 @@ export default function ClipperPage() {
         <p className="text-zinc-400 mt-1">Advanced transcript analysis and auto-rendering for viral shorts.</p>
       </div>
 
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-8 overflow-hidden">
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         
         {/* Left Side: Input & Progress */}
         <div className="lg:col-span-4 flex flex-col space-y-6">
@@ -311,6 +328,35 @@ export default function ClipperPage() {
                 </div>
               </div>
 
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-[10px] font-bold text-zinc-500 mb-1 uppercase tracking-wider">Min sec</label>
+                  <input type="number" min={5} max={maxDuration - 5} value={minDuration}
+                    onChange={e => setMinDuration(Math.max(5, parseInt(e.target.value) || 5))}
+                    className="modern-input" disabled={status === "processing"} />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-zinc-500 mb-1 uppercase tracking-wider">Max sec</label>
+                  <input type="number" min={minDuration + 5} max={180} value={maxDuration}
+                    onChange={e => setMaxDuration(Math.min(180, parseInt(e.target.value) || 60))}
+                    className="modern-input" disabled={status === "processing"} />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-zinc-500 mb-1 uppercase tracking-wider">Language</label>
+                  <select value={language} onChange={e => setLanguage(e.target.value)}
+                    className="modern-input" disabled={status === "processing"}>
+                    <option value="auto">Auto</option>
+                    <option value="en">English</option>
+                    <option value="ur">Urdu</option>
+                    <option value="hi">Hindi</option>
+                    <option value="ar">Arabic</option>
+                    <option value="es">Spanish</option>
+                    <option value="fr">French</option>
+                    <option value="de">German</option>
+                  </select>
+                </div>
+              </div>
+
               <div className="pt-2">
                 {status === "processing" ? (
                   <button type="button" disabled className="w-full py-4 bg-white/20 text-white font-bold rounded-xl flex items-center justify-center gap-2 cursor-not-allowed">
@@ -357,8 +403,8 @@ export default function ClipperPage() {
         </div>
 
         {/* Right Side: Results */}
-        <div className="lg:col-span-8 flex flex-col">
-          <div className="glass-card p-6 flex-1 flex flex-col overflow-hidden">
+        <div className="lg:col-span-8 flex flex-col min-h-[550px]">
+          <div className="glass-card p-6 flex-1 flex flex-col">
             
             {status === "selection" ? (
               <>
@@ -384,26 +430,81 @@ export default function ClipperPage() {
                         {selectedClipIndices.has(i) ? <CheckCircle2 className="h-6 w-6 text-[#66fcf1]" /> : <Circle className="h-6 w-6 text-zinc-500" />}
                       </div>
                       <div className="flex-1">
-                        <div className="flex items-center justify-between mb-3">
-                          <h3 className="font-bold text-white text-lg">{clip.title}</h3>
-                          <div className="flex gap-2">
-                            <span className="bg-[#66fcf1]/10 border border-[#66fcf1]/30 text-[#66fcf1] px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider">
-                              Hook: {clip.hook_score || clip.score}/100
-                            </span>
-                            <span className="bg-purple-500/10 border border-purple-500/30 text-purple-400 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider">
-                              Retain: {clip.retention_score || clip.score}/100
-                            </span>
+                        <div className="flex items-center justify-between mb-3 gap-3">
+                          <div className="min-w-0">
+                            <h3 className="font-bold text-white text-lg">{clip.title}</h3>
+                            <div className="flex flex-wrap items-center gap-2 mt-1">
+                              {clip.category && (
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-300 bg-amber-400/10 border border-amber-400/30 px-2 py-0.5 rounded">{clip.category}</span>
+                              )}
+                              {clip.source === "heuristic" && (
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-orange-300 bg-orange-400/10 border border-orange-400/30 px-2 py-0.5 rounded">Signal-only (AI unavailable)</span>
+                              )}
+                              {clip.self_contained === false && (
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-red-300 bg-red-400/10 border border-red-400/30 px-2 py-0.5 rounded">Needs context</span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex gap-2 shrink-0">
+                            {clip.hook_score != null && (
+                              <span className="bg-[#66fcf1]/10 border border-[#66fcf1]/30 text-[#66fcf1] px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider">
+                                Hook: {clip.hook_score}
+                              </span>
+                            )}
+                            {clip.payoff_score != null && (
+                              <span className="bg-purple-500/10 border border-purple-500/30 text-purple-400 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider">
+                                Payoff: {clip.payoff_score}
+                              </span>
+                            )}
                             <span className="bg-white/10 text-white px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider">
-                              Overall: {clip.score}/100
+                              Score: {clip.score}/100
                             </span>
                           </div>
                         </div>
-                        <p className="text-sm text-zinc-400 mb-3 border-l-2 border-[#66fcf1] pl-3 py-1 bg-white/5 rounded-r">{clip.reason}</p>
+                        {clip.hook_text && (
+                          <div className="mb-3">
+                            <label className="block text-[10px] font-bold text-zinc-500 mb-1 uppercase tracking-wider">On-screen hook (first 3s)</label>
+                            <input
+                              type="text"
+                              value={clip.hook_text}
+                              onClick={(e) => e.stopPropagation()}
+                              onChange={(e) => {
+                                const next = [...analyzedClips];
+                                next[i] = { ...next[i], hook_text: e.target.value };
+                                setAnalyzedClips(next);
+                              }}
+                              className="w-full bg-black/40 border border-white/10 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-[#66fcf1]"
+                            />
+                          </div>
+                        )}
+                        <p className="text-sm text-zinc-400 mb-3 border-l-2 border-[#66fcf1] pl-3 py-1 bg-white/5 rounded-r">
+                          {clip.reason}
+                          {clip.judge_note && <span className="block text-xs text-zinc-500 mt-1">Editor: {clip.judge_note}</span>}
+                        </p>
+                        {clip.score_breakdown && (
+                          <div className="grid grid-cols-5 gap-2 mb-3">
+                            {[
+                              ["AI", clip.score_breakdown.llm],
+                              ["Judge", clip.score_breakdown.judge],
+                              ["Energy", clip.score_breakdown.multimodal],
+                              ["Pace", clip.score_breakdown.speech],
+                              ["Length", clip.score_breakdown.duration_fit],
+                            ].map(([label, val]) => (
+                              <div key={label as string} title={`${label}: ${val ?? "n/a"}`}>
+                                <div className="flex justify-between text-[9px] font-bold text-zinc-500 uppercase"><span>{label}</span><span>{val != null ? Math.round(val as number) : "–"}</span></div>
+                                <div className="h-1 bg-white/5 rounded mt-1 overflow-hidden">
+                                  <div className="h-full bg-[#66fcf1]/70" style={{ width: `${val != null ? Math.min(100, val as number) : 0}%` }} />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3 text-xs font-bold text-zinc-500">
-                              <span>{clip.start}s - {clip.end}s</span>
+                              <span>{Number(clip.start).toFixed(1)}s - {Number(clip.end).toFixed(1)}s</span>
                               <span>•</span>
                               <span>{Math.round(clip.end - clip.start)}s duration</span>
+                              {clip.speech_metrics && (<><span>•</span><span>{clip.speech_metrics.wps} words/s</span></>)}
                             </div>
                             <button 
                                onClick={(e) => { e.stopPropagation(); setEditingClipIndex(i); }}
@@ -432,6 +533,11 @@ export default function ClipperPage() {
                 <h2 className="text-xs font-bold text-white uppercase tracking-widest border-b border-white/10 pb-3 mb-6 flex justify-between items-center">
                   <span>Generated Shorts ({clips.length})</span>
                 </h2>
+                {failedClips.length > 0 && (
+                  <div className="mb-4 p-3 rounded-lg border border-red-500/30 bg-red-500/10 text-xs text-red-300">
+                    {failedClips.length} clip(s) failed: {failedClips.map(f => `${f.title} (${f.error})`).join("; ")}
+                  </div>
+                )}
                 <div className="flex-1 overflow-y-auto pr-2 pb-8">
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {clips.map((clip, i) => (

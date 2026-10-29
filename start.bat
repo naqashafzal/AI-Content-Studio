@@ -53,7 +53,7 @@ IF %ERRORLEVEL% NEQ 0 (
     echo Continuing, but some video generation steps may fail without FFmpeg.
     timeout /t 3 >nul
 ) ELSE (
-    echo       Found FFmpeg (OK)
+    echo       Found FFmpeg [OK]
 )
 
 :: 4. Ensure Workspace Directories
@@ -68,7 +68,7 @@ echo       Workspace directories ready.
 echo.
 echo [5/6] Checking Python virtual environment and packages...
 IF NOT EXIST ".venv\Scripts\python.exe" (
-    echo       Creating Python Virtual Environment (.venv)...
+    echo       Creating Python Virtual Environment...
     python -m venv .venv
     IF %ERRORLEVEL% NEQ 0 (
         echo [ERROR] Failed to create virtual environment!
@@ -91,7 +91,7 @@ echo.
 echo [6/6] Checking Frontend web dependencies...
 cd web
 IF NOT EXIST "node_modules" (
-    echo       Installing frontend packages (first run, may take a moment)...
+    echo       Installing frontend packages...
     call npm install
 ) ELSE (
     echo       Frontend dependencies ready.

@@ -18,7 +18,7 @@ ffmpeg-python==0.2.0
 pillow
 requests
 httpx
-opencv-python
+opencv-python>=4.8,<5
 numpy
 playwright
 sqlalchemy
