@@ -22,6 +22,8 @@ ENV/
 # ====================
 # API Keys & Secrets
 # ====================
+data/
+token.json
 config.json
 client_secrets.json
 token.pickle

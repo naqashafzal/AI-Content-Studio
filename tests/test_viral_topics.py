@@ -3,7 +3,7 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 from server.main import app
 
-client = TestClient(app)
+client = TestClient(app, headers={"X-API-Key": "test-suite-token"})
 
 def test_viral_topics_endpoint_standalone():
     # Mock find_viral_topics so test does not require live external API keys

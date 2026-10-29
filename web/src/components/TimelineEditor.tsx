@@ -1,11 +1,10 @@
 "use client";
 
+import { apiFetch } from "@/lib/api";
+
 import React, { useState } from "react";
 import { API_BASE_URL } from "@/lib/api";
-import { 
-  Play, Pause, FastForward, Rewind, Scissors, Type, Image as ImageIcon,
-  Volume2, VolumeX, Lock, Unlock, Sparkles, Send, Trash2, Check, RefreshCw
-} from "lucide-react";
+import { Play, Pause, Scissors, Type, Image as ImageIcon, Volume2, VolumeX, Lock, Unlock, Sparkles, Send, Trash2, Check, RefreshCw } from "lucide-react";
 
 interface TranscriptSegment {
   id: string;
@@ -15,13 +14,16 @@ interface TranscriptSegment {
   deleted?: boolean;
 }
 
-interface TimelineClipData {
+export interface TimelineClipData {
   id?: string;
   start: number;
   end: number;
   title?: string;
   text?: string;
   reason?: string;
+  score?: number;
+  hook_score?: number;
+  retention_score?: number;
   broll?: Array<{ start_offset: number; end_offset: number; subject: string }>;
   transcript_segments?: TranscriptSegment[];
   kept_segments?: TranscriptSegment[];
@@ -42,7 +44,7 @@ export default function TimelineEditor({ clip, onSave, onCancel }: TimelineEdito
   // Audio & Layer track states
   const [isBgmMuted, setIsBgmMuted] = useState(false);
   const [isVoiceLocked, setIsVoiceLocked] = useState(false);
-  const [brollClips, setBrollClips] = useState(clip?.broll || [
+  const [brollClips] = useState(clip?.broll || [
     { start_offset: 2, end_offset: 6, subject: "Technology & Code" }
   ]);
 
@@ -71,7 +73,7 @@ export default function TimelineEditor({ clip, onSave, onCancel }: TimelineEdito
     setAiStatusMsg("AI analyzing timeline...");
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/timeline/ai-command`, {
+      const res = await apiFetch(`${API_BASE_URL}/api/timeline/ai-command`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

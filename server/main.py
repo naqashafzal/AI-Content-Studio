@@ -20,15 +20,38 @@ from config import load_config, save_config
 for d in ("workspace", "outputs", "agent_workspace", "assets", "videofx_outputs"):
     os.makedirs(d, exist_ok=True)
 
+from contextlib import asynccontextmanager
+from filelock import FileLock, Timeout
+from server.core.security import DATA_DIR, required_token
+from server.core.queue import recover_pending_tasks, start_workers, shutdown_workers
+import asyncio
+from server.core.scheduler import stop_scheduler
+
+@asynccontextmanager
+async def lifespan(app):
+    required_token()
+    lock = FileLock(str(DATA_DIR / "server.lock"))
+    try:
+        lock.acquire(timeout=0)
+    except Timeout:
+        raise RuntimeError("Run exactly one backend worker per data directory")
+    try:
+        start_workers()
+        recover_pending_tasks()
+        start_scheduler()
+        yield
+    finally:
+        await asyncio.to_thread(stop_scheduler)
+        await asyncio.to_thread(shutdown_workers)
+        lock.release()
+
 app = FastAPI(
+    lifespan=lifespan,
     title="AI Content Studio Engine",
     description="Scalable backend API for AI video generation",
     version="2.0.0"
 )
 
-@app.on_event("startup")
-def on_startup():
-    start_scheduler()
 
 # Restricted CORS configuration
 cors_origins_env = os.getenv("CORS_ORIGINS", "")
@@ -50,25 +73,41 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from server.core.security import authenticated, required_token, COOKIE_NAME
+from fastapi import Form, HTTPException
+from fastapi.responses import RedirectResponse
+import hmac
+
 @app.middleware("http")
 async def api_token_auth_middleware(request: Request, call_next):
-    """
-    Optional API token enforcement: if STUDIO_API_TOKEN or API_AUTH_TOKEN is configured,
-    verifies X-API-Key or Bearer token on protected /api/ endpoints.
-    """
-    if request.method == "OPTIONS" or request.url.path in ("/health", "/api/social/youtube/callback"):
-        return await call_next(request)
-
-    required_token = os.getenv("STUDIO_API_TOKEN") or load_config().get("API_AUTH_TOKEN", "")
-    if required_token and request.url.path.startswith("/api/"):
-        auth_header = request.headers.get("Authorization", "")
-        api_key_header = request.headers.get("X-API-Key", "")
-        query_token = request.query_params.get("token", "")
-        bearer_token = auth_header.replace("Bearer ", "").strip() if auth_header.startswith("Bearer ") else ""
-        if required_token not in (api_key_header, bearer_token, query_token):
-            return JSONResponse(status_code=401, content={"detail": "Unauthorized: Invalid or missing API token."})
-
+    public = {"/health", "/api/session", "/api/social/youtube/callback"}
+    if request.method != "OPTIONS" and request.url.path.startswith("/api/") and request.url.path not in public:
+        if not authenticated(request):
+            return JSONResponse(status_code=401, content={"detail": "Authentication required"})
+        # Cookie-authenticated writes must come from this site or an explicit CORS origin.
+        origin = request.headers.get("origin")
+        if request.method not in ("GET", "HEAD") and origin:
+            if origin.rstrip("/") not in allowed_origins + [str(request.base_url).rstrip("/")]:
+                return JSONResponse(status_code=403, content={"detail": "Invalid origin"})
     return await call_next(request)
+
+@app.post("/api/session")
+def login(request: Request, token: str = Form(...)):
+    if not hmac.compare_digest(token.encode(), required_token().encode()):
+        raise HTTPException(401, "Invalid token")
+    origin = request.headers.get("origin")
+    if origin and origin.rstrip("/") not in allowed_origins + [str(request.base_url).rstrip("/")]:
+        raise HTTPException(403, "Invalid origin")
+    response = RedirectResponse("/", status_code=303)
+    response.set_cookie(COOKIE_NAME, token, httponly=True, samesite="strict",
+                        secure=os.getenv("STUDIO_SECURE_COOKIES", "true").lower() == "true", max_age=43200)
+    return response
+
+@app.delete("/api/session")
+def logout():
+    response = JSONResponse({"message": "Signed out"})
+    response.delete_cookie(COOKIE_NAME)
+    return response
 
 # Include routers
 app.include_router(generation.router, prefix="/api/generate", tags=["Generation"])
@@ -113,4 +152,18 @@ def health_check():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("server.main:app", host="0.0.0.0", port=8008, reload=True)
+    uvicorn.run("server.main:app", host="0.0.0.0", port=8008, reload=False)
+
+@app.post("/api/jobs/{job_id}/retry")
+def retry_job(job_id: str):
+    from server.core.queue import retry_interrupted_task
+    retry_interrupted_task(job_id)
+    return {"job_id": job_id, "message": "Job queued for retry"}
+
+from server.core.security import RequestSizeLimit
+app.add_middleware(RequestSizeLimit)
+
+@app.get("/api/jobs")
+def recent_jobs():
+    from server.core.queue import list_jobs
+    return list_jobs()

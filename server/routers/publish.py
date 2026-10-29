@@ -1,3 +1,5 @@
+from server.core.security import DATA_DIR
+TOKEN_PATH = str(DATA_DIR / "token.json")
 from fastapi import APIRouter, HTTPException, Form
 from pydantic import BaseModel
 import os
@@ -15,24 +17,8 @@ class PublishRequest(BaseModel):
     privacy_status: str = "private"
 
 def validate_media_path(video_path: str) -> str:
-    if not video_path or ".." in video_path:
-        raise HTTPException(status_code=403, detail="Access denied: Invalid video path.")
-    clean = os.path.abspath(video_path.strip())
-    allowed_roots = [
-        os.path.abspath("workspace"),
-        os.path.abspath("outputs"),
-        os.path.abspath("agent_workspace"),
-        os.path.abspath("videofx_outputs")
-    ]
-    is_safe = any(
-        clean.startswith(root) and (len(clean) == len(root) or clean[len(root)] in (os.sep, '/'))
-        for root in allowed_roots
-    )
-    if not is_safe:
-        raise HTTPException(status_code=403, detail="Access denied: Video path outside permitted workspace.")
-    if not os.path.exists(clean) or not os.path.isfile(clean):
-        raise HTTPException(status_code=400, detail="Video file does not exist on disk.")
-    return clean
+    from server.core.security import media_path
+    return media_path(video_path, roots=("workspace", "outputs", "agent_workspace", "videofx_outputs"))
 
 @router.get("/library")
 def get_publishing_library():
@@ -110,7 +96,7 @@ def get_publishing_library():
 def publish_to_youtube(req: PublishRequest):
     safe_video_path = validate_media_path(req.video_path)
         
-    if not os.path.exists("client_secrets.json") and not os.path.exists("token.json"):
+    if not os.path.exists("client_secrets.json") and not os.path.exists(TOKEN_PATH):
         raise HTTPException(
             status_code=400,
             detail="client_secrets.json not found! Please configure YouTube OAuth 2.0 credentials in Settings."
@@ -123,7 +109,7 @@ def publish_to_youtube(req: PublishRequest):
         from google.oauth2.credentials import Credentials
 
         credentials = None
-        token_json_path = "token.json"
+        token_json_path = TOKEN_PATH
         if os.path.exists(token_json_path):
             try:
                 credentials = Credentials.from_authorized_user_file(

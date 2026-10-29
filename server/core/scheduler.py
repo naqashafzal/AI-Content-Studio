@@ -12,7 +12,10 @@ from agents import TrendAgent
 from server.core.queue import create_job, submit_to_queue
 from server.routers.generation import run_pipeline_task, GenerationRequest
 
-CAMPAIGNS_FILE = "campaigns.json"
+from server.core.security import DATA_DIR
+CAMPAIGNS_FILE = str(DATA_DIR / "campaigns.json")
+_scheduler_stop = threading.Event()
+_scheduler_thread = None
 
 class CampaignManager:
     def __init__(self):
@@ -70,7 +73,7 @@ class DummyUI:
     def update_agent_node(self, name, status, state): pass
 
 def scheduler_loop():
-    while True:
+    while not _scheduler_stop.is_set():
         try:
             now = time.time()
             for c in campaign_mgr.campaigns:
@@ -142,9 +145,18 @@ def scheduler_loop():
         except Exception as e:
             traceback.print_exc()
             
-        time.sleep(60) # Check every 1 minute
+        _scheduler_stop.wait(60) # Check every 1 minute
 
 def start_scheduler():
-    t = threading.Thread(target=scheduler_loop, daemon=True)
-    t.start()
+    global _scheduler_thread
+    if _scheduler_thread and _scheduler_thread.is_alive():
+        return
+    _scheduler_stop.clear()
+    _scheduler_thread = threading.Thread(target=scheduler_loop, daemon=True)
+    _scheduler_thread.start()
     logging.info("[Auto-Pilot] Autonomous Scheduler Engine started.")
+
+def stop_scheduler():
+    _scheduler_stop.set()
+    if _scheduler_thread:
+        _scheduler_thread.join()

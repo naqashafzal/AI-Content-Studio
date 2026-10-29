@@ -8,9 +8,10 @@ import json
 import os
 import logging
 
-CONFIG_FILE = "config.json"
+CONFIG_FILE = os.getenv("STUDIO_CONFIG_FILE", "config.json")
 
 SENSITIVE_KEYS = {
+    "SERPER_API_KEY",
     "GEMINI_API_KEY",
     "WAVESPEED_API_KEY",
     "WAVESPEED_AI_KEY",
@@ -173,11 +174,20 @@ def save_config(config, config_path=CONFIG_FILE):
             cleaned_config["WAVESPEED_API_KEY"] = ws_key
             cleaned_config["WAVESPEED_AI_KEY"] = ws_key
 
-        with open(config_path, 'w', encoding="utf-8") as f:
-            json.dump(cleaned_config, f, indent=4)
+        import tempfile
+        directory = os.path.dirname(os.path.abspath(config_path))
+        fd, temporary = tempfile.mkstemp(dir=directory, prefix=".config-")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                json.dump(cleaned_config, f, indent=4)
+            os.replace(temporary, config_path)
+        finally:
+            if os.path.exists(temporary):
+                os.unlink(temporary)
         logging.info(f"Configuration saved to {config_path}")
     except Exception as e:
         logging.error(f"Error saving config: {e}")
+        raise
 
 DEFAULT_PIPELINE_STEPS = [
     "Write Script", "Generate Voiceover", "Generate Images", "Video Generation",

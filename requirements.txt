@@ -1,25 +1,2 @@
-fastapi
-uvicorn
-python-multipart
-watchfiles
-pydantic
-yt-dlp
-openai-whisper
-pysubs2
-google-generativeai
-google-cloud-aiplatform
-google-api-python-client
-google-auth-oauthlib
-google-auth-httplib2
-pydub
-moviepy==1.0.3
-websockets==12.0
-ffmpeg-python==0.2.0
-pillow
-requests
-httpx
-opencv-python>=4.8,<5
-numpy
-playwright
-sqlalchemy
-pytest
+# Reproducible, tested runtime and test dependencies.
+-r requirements.lock

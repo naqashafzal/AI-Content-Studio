@@ -1,5 +1,9 @@
 "use client";
 
+import Image from "next/image";
+
+import { apiFetch } from "@/lib/api";
+
 import { useState, useEffect } from "react";
 import { Play, Loader2, Maximize, AlertCircle, StopCircle, LogIn, SlidersHorizontal, Download } from "lucide-react";
 import { API_BASE_URL, WS_BASE_URL, getMediaUrl } from "@/lib/api";
@@ -61,14 +65,14 @@ export default function VideoFXFlowPage() {
     const finalPrompt = `${prompt}, ${style} style, ${aspectRatio === "16:9" ? "horizontal 16:9" : aspectRatio === "9:16" ? "vertical 9:16" : "square 1:1"} aspect ratio`;
     
     try {
-      const res = await fetch(`${API_BASE_URL}/api/videofx/generate`, {
+      const res = await apiFetch(`${API_BASE_URL}/api/videofx/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt: finalPrompt })
       });
       const data = await res.json();
       setJobId(data.job_id);
-    } catch (err) {
+    } catch {
       setStatus("error");
       setLogs(prev => [...prev, "Failed to connect to API."]);
     }
@@ -77,7 +81,7 @@ export default function VideoFXFlowPage() {
   const handleStop = async () => {
     if (!jobId) return;
     try {
-      await fetch(`${API_BASE_URL}/api/videofx/job/${jobId}`, { method: "DELETE" });
+      await apiFetch(`${API_BASE_URL}/api/videofx/job/${jobId}`, { method: "DELETE" });
       setStatus("error");
       setLogs(prev => [...prev, "Generation cancelled by user."]);
     } catch (e) {
@@ -87,7 +91,7 @@ export default function VideoFXFlowPage() {
 
   const handleLogin = async () => {
     try {
-      await fetch(`${API_BASE_URL}/api/videofx/login`, { method: "POST" });
+      await apiFetch(`${API_BASE_URL}/api/videofx/login`, { method: "POST" });
       alert("A browser window will open shortly on your computer. Please log in to your Google Account there. Your session will be saved forever, so you only need to do this once!");
     } catch (e) {
       console.error(e);
@@ -216,7 +220,7 @@ export default function VideoFXFlowPage() {
                   <div className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
                   <span className="text-[10px] font-bold text-red-400 tracking-widest">LIVE AUTOMATION</span>
                 </div>
-                <img 
+                <Image unoptimized width={1280} height={720}
                   src={`data:image/jpeg;base64,${browserFrame}`} 
                   alt="Live Browser Feed" 
                   className="w-full h-auto object-contain opacity-90 transition-opacity duration-300"

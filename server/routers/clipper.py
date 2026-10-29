@@ -1,3 +1,4 @@
+from server.core.security import copy_upload
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Optional
@@ -90,8 +91,7 @@ async def start_analyze_local(
     safe_filename = f"upload_{uuid.uuid4().hex[:8]}_{safe_basename}"
     video_path = os.path.join(output_dir, safe_filename)
     
-    with open(video_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    copy_upload(file.file, video_path)
         
     submit_to_queue(run_analyze_local_task, job_id, video_path, num_clips, min_duration, max_duration, language)
     return {"job_id": job_id, "message": "Local analysis queued successfully."}

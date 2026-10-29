@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/api";
+
 import { useState, useEffect } from "react";
 import { Film, Upload, CheckCircle2, Play, MonitorPlay, FileText, Loader2, Tag, Info, Smartphone, Download, Link2 } from "lucide-react";
 import { API_BASE_URL, getMediaUrl } from "@/lib/api";
@@ -22,6 +24,13 @@ function InstagramIcon({ className }: { className?: string }) {
   );
 }
 
+interface PublishingProject {
+  id: string;
+  name: string;
+  video_path: string;
+  seo?: { title?: string; description?: string; tags?: string };
+}
+
 interface PlatformStatus {
   connected: boolean;
   expired?: boolean;
@@ -29,8 +38,8 @@ interface PlatformStatus {
 }
 
 export default function PublishPage() {
-  const [projects, setProjects] = useState<any[]>([]);
-  const [selectedProject, setSelectedProject] = useState<any | null>(null);
+  const [projects, setProjects] = useState<PublishingProject[]>([]);
+  const [selectedProject, setSelectedProject] = useState<PublishingProject | null>(null);
   
   // Edit Form State
   const [title, setTitle] = useState("");
@@ -47,14 +56,14 @@ export default function PublishPage() {
   const [selectedPlatforms, setSelectedPlatforms] = useState({ youtube: true, tiktok: false, instagram: false });
 
   useEffect(() => {
-    fetch(`${API_BASE_URL}/api/publish/library`)
+    apiFetch(`${API_BASE_URL}/api/publish/library`)
       .then(res => res.json())
       .then(data => {
         setProjects(data.projects || []);
       })
       .catch(err => console.error(err));
       
-    fetch(`${API_BASE_URL}/api/social/status`)
+    apiFetch(`${API_BASE_URL}/api/social/status`)
       .then(res => res.json())
       .then(data => {
         if (data) setSocialStatus(data);
@@ -62,7 +71,7 @@ export default function PublishPage() {
       .catch(err => console.error(err));
   }, []);
 
-  const selectProject = (proj: any) => {
+  const selectProject = (proj: PublishingProject) => {
     setSelectedProject(proj);
     setTitle(proj.seo?.title || "");
     setDescription(proj.seo?.description || "");
@@ -73,14 +82,14 @@ export default function PublishPage() {
 
   const handleConnectYouTube = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/social/youtube/auth`);
+      const res = await apiFetch(`${API_BASE_URL}/api/social/youtube/auth`);
       const data = await res.json();
       if (data.auth_url) {
         window.open(data.auth_url, "_blank");
       } else {
         alert(data.message || "Please configure YOUTUBE_CLIENT_ID in Settings or place client_secrets.json in the project root.");
       }
-    } catch (e) {
+    } catch {
       alert("Failed to initiate YouTube OAuth flow.");
     }
   };
@@ -88,7 +97,7 @@ export default function PublishPage() {
   const handleExportBundle = async () => {
     if (!selectedProject) return;
     try {
-      const res = await fetch(`${API_BASE_URL}/api/social/export-bundle`, {
+      const res = await apiFetch(`${API_BASE_URL}/api/social/export-bundle`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -105,7 +114,7 @@ export default function PublishPage() {
         const err = await res.json();
         alert("Export Bundle failed: " + (err.detail || "Unknown error"));
       }
-    } catch (e) {
+    } catch {
       alert("Failed to create export bundle.");
     }
   };
@@ -125,7 +134,7 @@ export default function PublishPage() {
         privacy_status: "private"
       };
       
-      const res = await fetch(`${API_BASE_URL}/api/publish/youtube`, {
+      const res = await apiFetch(`${API_BASE_URL}/api/publish/youtube`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
@@ -138,7 +147,7 @@ export default function PublishPage() {
       } else {
         setStatus("published");
       }
-    } catch (err) {
+    } catch {
       alert("Failed to connect to API.");
       setStatus("idle");
     }

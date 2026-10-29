@@ -4,6 +4,8 @@ import os
 import subprocess
 from pydantic import BaseModel
 import tempfile
+import uuid
+from server.core.security import copy_upload
 import pipeline
 from api_clients import STYLE_PROFILES, WaveSpeedClient, GoogleClient
 from config import load_config, VOICE_OPTIONS
@@ -23,11 +25,10 @@ def generate_captions(
 ):
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp_in:
-            content = file.file.read()
-            tmp_in.write(content)
             tmp_in_path = tmp_in.name
+        copy_upload(file.file, tmp_in_path)
             
-        filename_base = file.filename.rsplit('.', 1)[0] if file.filename else "video"
+        filename_base = uuid.uuid4().hex
         out_path = os.path.join(TOOLS_DIR, f"{filename_base}_captioned.mp4")
         ass_path = os.path.join(TOOLS_DIR, f"{filename_base}.ass")
         
@@ -49,8 +50,14 @@ def generate_captions(
         
         # Return normalized workspace path for /api/generate/media
         return {"message": "Captions generated successfully", "path": out_path.replace("\\", "/")}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if "tmp_in_path" in locals():
+            from pathlib import Path
+            Path(tmp_in_path).unlink(missing_ok=True)
 
 
 @router.post("/convert")
@@ -60,11 +67,10 @@ def convert_aspect_ratio(
 ):
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp_in:
-            content = file.file.read()
-            tmp_in.write(content)
             tmp_in_path = tmp_in.name
+        copy_upload(file.file, tmp_in_path)
             
-        filename_base = file.filename.rsplit('.', 1)[0] if file.filename else "video"
+        filename_base = uuid.uuid4().hex
         ar_str = "horizontal" if "16:9" in target_ar else "vertical"
         out_path = os.path.join(TOOLS_DIR, f"{filename_base}_{ar_str}.mp4")
         
@@ -83,8 +89,14 @@ def convert_aspect_ratio(
         os.remove(tmp_in_path)
         
         return {"message": "Video converted successfully", "path": out_path.replace("\\", "/")}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if "tmp_in_path" in locals():
+            from pathlib import Path
+            Path(tmp_in_path).unlink(missing_ok=True)
 
 class TTSRequest(BaseModel):
     text: str
@@ -102,12 +114,12 @@ def generate_tts(req: TTSRequest):
 
         # Route to Gemini TTS if voice is a Gemini voice and Gemini key is available, else WaveSpeed TTS
         if gemini_key and (req.voice in GEMINI_VOICES or not ws_key):
-            filename = f"tts_{req.voice}_{abs(hash(req.text)) % 10000}.wav"
+            filename = f"tts_{uuid.uuid4().hex}.wav"
             out_path = os.path.join(TOOLS_DIR, filename)
             g_client = GoogleClient(config)
             g_client.generate_tts(req.text, out_path, {"SPEAKER1": req.voice, "CONTENT_STYLE": "Narration"})
         elif ws_key:
-            filename = f"tts_{req.voice}_{abs(hash(req.text)) % 10000}.mp3"
+            filename = f"tts_{uuid.uuid4().hex}.mp3"
             out_path = os.path.join(TOOLS_DIR, filename)
             tts_client = WaveSpeedClient(ws_key)
             audio_model = config.get("WAVESPEED_AUDIO_MODEL", "elevenlabs/text-to-speech")

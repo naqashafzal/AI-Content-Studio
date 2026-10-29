@@ -1,9 +1,11 @@
 "use client";
 
-import { API_BASE_URL, WS_BASE_URL } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
+
+import { API_BASE_URL } from "@/lib/api";
 
 import { useEffect, useState } from "react";
-import { Film, FileText, Download, Play, Trash2, Calendar, Loader2, RefreshCw } from "lucide-react";
+import { Film, FileText, Download, Trash2, Calendar, Loader2, RefreshCw } from "lucide-react";
 
 interface ProjectVideo {
   title: string;
@@ -18,7 +20,24 @@ interface Project {
   scripts: string[];
 }
 
+interface Job {
+  id: string;
+  topic: string;
+  status: string;
+}
+
+async function loadHistory(): Promise<{ projects: Project[]; jobs: Job[] }> {
+  const [projects, jobs] = await Promise.all([
+    apiFetch(`${API_BASE_URL}/api/generate/history`),
+    apiFetch(`${API_BASE_URL}/api/jobs`),
+  ]);
+  if (!projects.ok || !jobs.ok) throw new Error("Failed to load history");
+  return { projects: await projects.json(), jobs: await jobs.json() };
+}
+
 export default function HistoryPage() {
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [retrying, setRetrying] = useState<string | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -26,11 +45,9 @@ export default function HistoryPage() {
   const fetchHistory = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/generate/history`);
-      if (res.ok) {
-        const data = await res.json();
-        setProjects(data);
-      }
+      const data = await loadHistory();
+      setProjects(data.projects);
+      setJobs(data.jobs);
     } catch (e) {
       console.error("Failed to fetch history", e);
     }
@@ -38,7 +55,14 @@ export default function HistoryPage() {
   };
 
   useEffect(() => {
-    fetchHistory();
+    let active = true;
+    loadHistory().then(data => {
+      if (!active) return;
+      setProjects(data.projects);
+      setJobs(data.jobs);
+    }).catch(error => console.error("Failed to load history", error))
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
   }, []);
 
   const handleDelete = async (id: string) => {
@@ -46,7 +70,7 @@ export default function HistoryPage() {
     
     setDeletingId(id);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/generate/history/${id}`, {
+      const res = await apiFetch(`${API_BASE_URL}/api/generate/history/${id}`, {
         method: "DELETE"
       });
       if (res.ok) {
@@ -59,6 +83,19 @@ export default function HistoryPage() {
       alert("Error deleting project");
     }
     setDeletingId(null);
+  };
+
+  const retryJob = async (id: string) => {
+    setRetrying(id);
+    try {
+      const response = await apiFetch(`${API_BASE_URL}/api/jobs/${id}/retry`, { method: "POST" });
+      if (!response.ok) throw new Error((await response.json()).detail || "Retry failed");
+      await fetchHistory();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Retry failed");
+    } finally {
+      setRetrying(null);
+    }
   };
 
   const formatDate = (timestamp: number) => {
@@ -83,6 +120,17 @@ export default function HistoryPage() {
           <RefreshCw className={`h-5 w-5 ${loading ? "animate-spin text-[#66fcf1]" : ""}`} />
         </button>
       </div>
+
+      {jobs.length > 0 && <section className="glass-card p-6 space-y-3">
+        <h2 className="text-xl font-bold">Recent jobs</h2>
+        <p className="text-sm text-zinc-400">Queued jobs resume after restart. Retrying interrupted work may repeat provider calls and incur charges.</p>
+        {jobs.slice(0, 10).map(job => <div key={job.id} className="flex items-center justify-between gap-4 border-b border-white/10 py-3">
+          <div><p>{job.topic}</p><span className="text-xs text-zinc-400">{job.status}</span></div>
+          {["failed", "interrupted"].includes(job.status) && <button disabled={retrying === job.id} onClick={() => retryJob(job.id)} className="modern-input">
+            {retrying === job.id ? "Queuing…" : "Retry job"}
+          </button>}
+        </div>)}
+      </section>}
 
       {loading && projects.length === 0 ? (
         <div className="glass-card p-20 flex flex-col items-center justify-center gap-4 text-zinc-400">

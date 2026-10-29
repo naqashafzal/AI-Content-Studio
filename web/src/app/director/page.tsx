@@ -1,12 +1,10 @@
 "use client";
 
+import { apiFetch } from "@/lib/api";
+
 import { useState, useEffect, useRef } from "react";
 import { API_BASE_URL, WS_BASE_URL, getMediaUrl } from "@/lib/api";
-import { 
-  Film, Upload, Loader2, Play, Download, Wand2, Settings2, FileAudio, 
-  Lock, Unlock, RefreshCw, CheckCircle2, Sparkles, Clock, Sliders, Flame, 
-  ChevronRight, AlertCircle, Save 
-} from "lucide-react";
+import { Film, Upload, Loader2, Play, Download, Wand2, Settings2, FileAudio, Lock, Unlock, RefreshCw, CheckCircle2, Sparkles, Clock, Sliders, Flame, Save } from "lucide-react";
 
 interface Scene {
   scene_number: number;
@@ -69,7 +67,7 @@ export default function DirectorModePage() {
 
   // Load trend ideas on mount
   useEffect(() => {
-    fetch(`${API_BASE_URL}/api/director/trends?niche=technology&count=3`)
+    apiFetch(`${API_BASE_URL}/api/director/trends?niche=technology&count=3`)
       .then(res => res.json())
       .then(data => {
         if (data.opportunities) {
@@ -181,7 +179,7 @@ export default function DirectorModePage() {
     setPlanLogs([{ message: `Analyzing topic: '${topic}'`, time: new Date().toLocaleTimeString() }]);
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/director/autonomous-plan`, {
+      const res = await apiFetch(`${API_BASE_URL}/api/director/autonomous-plan`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -198,7 +196,7 @@ export default function DirectorModePage() {
       } else {
         setPlanJobId(data.job_id);
       }
-    } catch (err) {
+    } catch {
       alert("API request failed.");
       setPlanningStatus("idle");
     }
@@ -212,7 +210,7 @@ export default function DirectorModePage() {
     setStoryboard({ ...storyboard, scenes: updatedScenes });
   };
 
-  const handleSceneFieldChange = (sceneNumber: number, field: keyof Scene, value: any) => {
+  const handleSceneFieldChange = <K extends keyof Scene>(sceneNumber: number, field: K, value: Scene[K]) => {
     if (!storyboard) return;
     const updatedScenes = storyboard.scenes.map(s => 
       s.scene_number === sceneNumber ? { ...s, [field]: value } : s
@@ -224,7 +222,7 @@ export default function DirectorModePage() {
     if (!storyboard || !planJobId) return;
     setSavingScenes(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/director/update-scenes`, {
+      const res = await apiFetch(`${API_BASE_URL}/api/director/update-scenes`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -235,7 +233,7 @@ export default function DirectorModePage() {
       if (res.ok) {
         alert("Storyboard changes saved successfully!");
       }
-    } catch (err) {
+    } catch {
       alert("Failed to save changes.");
     } finally {
       setSavingScenes(false);
@@ -246,7 +244,7 @@ export default function DirectorModePage() {
     if (!planJobId) return;
     setRegeneratingSceneNum(sceneNumber);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/director/regenerate-scene`, {
+      const res = await apiFetch(`${API_BASE_URL}/api/director/regenerate-scene`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -263,7 +261,7 @@ export default function DirectorModePage() {
       } else {
         alert("Scene regeneration failed: " + (data.detail || "Unknown error"));
       }
-    } catch (err) {
+    } catch {
       alert("Failed to regenerate scene.");
     } finally {
       setRegeneratingSceneNum(null);
@@ -284,7 +282,7 @@ export default function DirectorModePage() {
     setRawLogs([{ message: "Starting Director Mode...", time: new Date().toLocaleTimeString() }]);
     
     try {
-      const res = await fetch(`${API_BASE_URL}/api/director/process`, {
+      const res = await apiFetch(`${API_BASE_URL}/api/director/process`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
@@ -302,7 +300,7 @@ export default function DirectorModePage() {
       } else {
         setRawJobId(data.job_id);
       }
-    } catch (err) {
+    } catch {
       alert("API Error");
       setRawStatus("idle");
     }
@@ -478,7 +476,7 @@ export default function DirectorModePage() {
                     <span className="text-xs text-zinc-400">Target: {storyboard.duration}s</span>
                   </div>
                   <h2 className="text-2xl font-black text-white mt-2">{storyboard.title}</h2>
-                  <p className="text-sm text-zinc-400 mt-1 italic">Hook: "{storyboard.hook}"</p>
+                  <p className="text-sm text-zinc-400 mt-1 italic">Hook: &quot;{storyboard.hook}&quot;</p>
                 </div>
 
                 <div className="flex items-center gap-3">
@@ -496,7 +494,7 @@ export default function DirectorModePage() {
                       setPlanProgress(75);
                       setPlanLogMsg("Synthesizing scene audio & visuals...");
                       try {
-                        const res = await fetch(`${API_BASE_URL}/api/director/render-plan`, {
+                        const res = await apiFetch(`${API_BASE_URL}/api/director/render-plan`, {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
                           body: JSON.stringify({ job_id: planJobId, scenes: storyboard.scenes })
@@ -506,7 +504,7 @@ export default function DirectorModePage() {
                           alert("Render failed to start: " + (err.detail || "Unknown error"));
                           setPlanningStatus("ready");
                         }
-                      } catch (e) {
+                      } catch {
                         alert("Failed to connect to server for rendering.");
                         setPlanningStatus("ready");
                       }
@@ -803,14 +801,14 @@ export default function DirectorModePage() {
                   <div className="w-full max-w-2xl mx-auto flex flex-col gap-6">
                     <div className="aspect-video bg-black rounded-xl border border-white/10 overflow-hidden relative shadow-2xl">
                       <video 
-                        src={`http://localhost:8008/api/generate/media?path=${encodeURIComponent(finalVideo.replace(/\\/g, '/'))}`} 
+                        src={`${API_BASE_URL}/api/generate/media?path=${encodeURIComponent(finalVideo.replace(/\\/g, '/'))}`}
                         controls 
                         className="w-full h-full object-cover"
                       />
                     </div>
                     
                     <div className="flex items-center gap-3">
-                      <a href={`http://localhost:8008/api/generate/media?path=${encodeURIComponent(finalVideo.replace(/\\/g, '/'))}`} download className="flex-1 py-4 bg-[#66fcf1] hover:bg-[#45f3e5] text-black rounded-xl flex items-center justify-center gap-2 text-sm font-bold transition-all shadow-[0_0_15px_rgba(102,252,241,0.2)]">
+                      <a href={`${API_BASE_URL}/api/generate/media?path=${encodeURIComponent(finalVideo.replace(/\\/g, '/'))}`} download className="flex-1 py-4 bg-[#66fcf1] hover:bg-[#45f3e5] text-black rounded-xl flex items-center justify-center gap-2 text-sm font-bold transition-all shadow-[0_0_15px_rgba(102,252,241,0.2)]">
                         <Download className="h-5 w-5" /> Download Final Master
                       </a>
                     </div>

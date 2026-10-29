@@ -1,3 +1,5 @@
+from server.core.security import DATA_DIR
+TOKEN_PATH = str(DATA_DIR / "token.json")
 import os
 import json
 import logging
@@ -26,11 +28,11 @@ def get_social_status(db: Session = Depends(get_db)):
             "updated_at": t.updated_at.isoformat() if t.updated_at else None
         }
 
-    if "youtube" not in status_map and os.path.exists("token.json"):
+    if "youtube" not in status_map and os.path.exists(TOKEN_PATH):
         status_map["youtube"] = {
             "connected": True,
             "expired": False,
-            "updated_at": datetime.utcfromtimestamp(os.path.getmtime("token.json")).isoformat()
+            "updated_at": datetime.utcfromtimestamp(os.path.getmtime(TOKEN_PATH)).isoformat()
         }
     
     return {
@@ -40,94 +42,80 @@ def get_social_status(db: Session = Depends(get_db)):
         "facebook": status_map.get("facebook", {"connected": False, "expired": False})
     }
 
-@router.get("/youtube/auth")
-def youtube_auth_url():
-    """Generates genuine Google OAuth 2.0 authorization URL for YouTube Data API."""
+def youtube_flow():
+    from google_auth_oauthlib.flow import Flow
     config = load_config()
-    client_secrets_path = "client_secrets.json"
-    
-    client_id = config.get("YOUTUBE_CLIENT_ID")
-    client_secret = config.get("YOUTUBE_CLIENT_SECRET")
     redirect_uri = os.getenv("YOUTUBE_REDIRECT_URI", "http://localhost:8008/api/social/youtube/callback")
-    
-    if os.path.exists(client_secrets_path):
-        try:
-            from google_auth_oauthlib.flow import Flow
-            flow = Flow.from_client_secrets_file(
-                client_secrets_path,
-                scopes=[
-                    "https://www.googleapis.com/auth/youtube.upload",
-                    "https://www.googleapis.com/auth/youtube.readonly"
-                ],
-                redirect_uri=redirect_uri
-            )
-            auth_url, _ = flow.authorization_url(prompt="consent", access_type="offline")
-            return {"auth_url": auth_url, "configured": True}
-        except Exception as e:
-            logging.error(f"Failed to create Google OAuth flow from client_secrets.json: {e}")
-            
-    if client_id:
-        scopes = "https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/youtube.readonly"
-        auth_url = (
-            f"https://accounts.google.com/o/oauth2/v2/auth?"
-            f"client_id={client_id}&redirect_uri={redirect_uri}&response_type=code&"
-            f"scope={scopes}&access_type=offline&prompt=consent"
-        )
-        return {"auth_url": auth_url, "configured": True}
-        
-    return {
-        "auth_url": None,
-        "configured": False,
-        "message": "YouTube API credentials not configured. Please supply client_secrets.json or set YOUTUBE_CLIENT_ID in Settings."
-    }
+    scopes = ["https://www.googleapis.com/auth/youtube.upload", "https://www.googleapis.com/auth/youtube.readonly"]
+    if os.path.exists("client_secrets.json"):
+        return Flow.from_client_secrets_file("client_secrets.json", scopes=scopes, redirect_uri=redirect_uri)
+    if not config.get("YOUTUBE_CLIENT_ID") or not config.get("YOUTUBE_CLIENT_SECRET"):
+        raise HTTPException(400, "Configure YouTube client ID and client secret first")
+    return Flow.from_client_config({"web": {
+        "client_id": config["YOUTUBE_CLIENT_ID"], "client_secret": config["YOUTUBE_CLIENT_SECRET"],
+        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+        "token_uri": "https://oauth2.googleapis.com/token"}}, scopes=scopes, redirect_uri=redirect_uri)
 
-@router.post("/youtube/callback")
-def youtube_callback(request_data: dict, db: Session = Depends(get_db)):
-    """Exchanges YouTube OAuth code for real access and refresh tokens."""
-    code = request_data.get("code")
-    if not code:
-        raise HTTPException(status_code=400, detail="Missing authorization code.")
+@router.get("/youtube/auth")
+def youtube_auth_url(db: Session = Depends(get_db)):
+    import hashlib
+    import secrets
+    from datetime import timedelta
+    from fastapi.responses import JSONResponse
+    from server.core.database import OAuthState
+    state = secrets.token_urlsafe(32)
+    flow = youtube_flow()
+    auth_url, _ = flow.authorization_url(state=state, prompt="consent", access_type="offline")
+    db.query(OAuthState).filter(OAuthState.expires_at < datetime.utcnow()).delete()
+    db.add(OAuthState(state_hash=hashlib.sha256(state.encode()).hexdigest(),
+                      expires_at=datetime.utcnow() + timedelta(minutes=10)))
+    db.commit()
+    response = JSONResponse({"auth_url": auth_url, "configured": True})
+    response.set_cookie("studio_oauth_state", state, httponly=True, samesite="lax", max_age=600,
+                        secure=os.getenv("STUDIO_SECURE_COOKIES", "true").lower() == "true")
+    return response
 
-    client_secrets_path = "client_secrets.json"
-    redirect_uri = os.getenv("YOUTUBE_REDIRECT_URI", "http://localhost:8008/api/social/youtube/callback")
-    
+@router.get("/youtube/callback")
+def youtube_callback(request: Request, code: str = "", state: str = "", db: Session = Depends(get_db)):
+    import hashlib
+    import hmac
+    from server.core.database import OAuthState
+    from fastapi.responses import RedirectResponse
+    cookie = request.cookies.get("studio_oauth_state", "")
+    if not code or not state or not cookie or not hmac.compare_digest(cookie, state):
+        raise HTTPException(400, "Invalid OAuth state")
+    # Atomic single-use consumption rejects replay and expired authorization attempts.
+    consumed = db.query(OAuthState).filter(
+        OAuthState.state_hash == hashlib.sha256(state.encode()).hexdigest(),
+        OAuthState.expires_at > datetime.utcnow()).delete()
+    db.commit()
+    if consumed != 1:
+        raise HTTPException(400, "Expired or already used OAuth state")
     try:
-        from google_auth_oauthlib.flow import Flow
-        if os.path.exists(client_secrets_path):
-            flow = Flow.from_client_secrets_file(
-                client_secrets_path,
-                scopes=[
-                    "https://www.googleapis.com/auth/youtube.upload",
-                    "https://www.googleapis.com/auth/youtube.readonly"
-                ],
-                redirect_uri=redirect_uri
-            )
-            flow.fetch_token(code=code)
-            credentials = flow.credentials
-            
-            token_entry = db.query(OAuthToken).filter(OAuthToken.platform == "youtube").first()
-            if not token_entry:
-                token_entry = OAuthToken(platform="youtube")
-                db.add(token_entry)
-                
-            token_entry.access_token = credentials.token
-            token_entry.refresh_token = credentials.refresh_token
-            token_entry.expires_at = credentials.expiry
-            token_entry.updated_at = datetime.utcnow()
-            db.commit()
-            
-            with open("token.json", "w", encoding="utf-8") as f:
-                f.write(credentials.to_json())
-                
-            return {"message": "YouTube connected successfully."}
-        else:
-            raise HTTPException(status_code=400, detail="client_secrets.json required to complete token exchange.")
-    except HTTPException:
-        raise
-    except Exception as e:
+        flow = youtube_flow()
+        flow.fetch_token(code=code)
+        credentials = flow.credentials
+        token_entry = db.query(OAuthToken).filter(OAuthToken.platform == "youtube").first()
+        if not token_entry:
+            token_entry = OAuthToken(platform="youtube")
+            db.add(token_entry)
+        token_entry.access_token = credentials.token
+        token_entry.refresh_token = credentials.refresh_token or token_entry.refresh_token
+        token_entry.expires_at = credentials.expiry
+        token_entry.updated_at = datetime.utcnow()
+        db.commit()
+        from server.core.security import DATA_DIR
+        token_path = DATA_DIR / "token.json"
+        fd = os.open(token_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as stream:
+            stream.write(credentials.to_json())
+        response = RedirectResponse("/publish", status_code=303)
+        response.delete_cookie("studio_oauth_state")
+        return response
+    except Exception:
         db.rollback()
-        logging.error(f"OAuth exchange error: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to authenticate YouTube: {str(e)}")
+        logging.exception("YouTube OAuth exchange failed")
+        raise HTTPException(502, "YouTube authorization failed; please reconnect")
 
 @router.post("/publish/youtube")
 def publish_to_youtube(video_data: dict, db: Session = Depends(get_db)):
@@ -137,9 +125,9 @@ def publish_to_youtube(video_data: dict, db: Session = Depends(get_db)):
 
     token = db.query(OAuthToken).filter(OAuthToken.platform == "youtube").first()
     if not token or not token.access_token:
-        if os.path.exists("token.json"):
+        if os.path.exists(TOKEN_PATH):
             from google.oauth2.credentials import Credentials
-            credentials = Credentials.from_authorized_user_file("token.json")
+            credentials = Credentials.from_authorized_user_file(TOKEN_PATH)
         else:
             raise HTTPException(status_code=401, detail="YouTube account is not connected. Please connect via settings or auth.")
     else:
@@ -150,7 +138,8 @@ def publish_to_youtube(video_data: dict, db: Session = Depends(get_db)):
             refresh_token=token.refresh_token,
             token_uri="https://oauth2.googleapis.com/token",
             client_id=config.get("YOUTUBE_CLIENT_ID"),
-            client_secret=config.get("YOUTUBE_CLIENT_SECRET")
+            client_secret=config.get("YOUTUBE_CLIENT_SECRET"),
+            expiry=token.expires_at
         )
 
     try:

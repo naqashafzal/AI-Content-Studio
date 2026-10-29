@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/api";
+
 import { useState } from "react";
 import { Type, Crop, Mic, Upload, Download, Loader2 } from "lucide-react";
 import { API_BASE_URL, getMediaUrl } from "@/lib/api";
@@ -8,7 +10,7 @@ export default function ToolsPage() {
   // Caption State
   const [captionFile, setCaptionFile] = useState<File | null>(null);
   const [captionStyle, setCaptionStyle] = useState("Podcast");
-  const [captionLang, setCaptionLang] = useState("English");
+  const [captionLang] = useState("English");
   const [captionStatus, setCaptionStatus] = useState("idle");
   const [captionResult, setCaptionResult] = useState("");
 
@@ -35,7 +37,7 @@ export default function ToolsPage() {
     formData.append("language", captionLang);
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/tools/caption`, {
+      const res = await apiFetch(`${API_BASE_URL}/api/tools/caption`, {
         method: "POST",
         body: formData
       });
@@ -43,8 +45,8 @@ export default function ToolsPage() {
       if (!res.ok) throw new Error(data.detail || "Caption generation failed.");
       setCaptionResult(data.path.replace(/\\/g, "/"));
       setCaptionStatus("done");
-    } catch (err: any) {
-      alert(err.message || "Caption generation failed.");
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Caption generation failed.");
       setCaptionStatus("idle");
     }
   };
@@ -59,7 +61,7 @@ export default function ToolsPage() {
     formData.append("target_ar", targetAr);
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/tools/convert`, {
+      const res = await apiFetch(`${API_BASE_URL}/api/tools/convert`, {
         method: "POST",
         body: formData
       });
@@ -67,8 +69,8 @@ export default function ToolsPage() {
       if (!res.ok) throw new Error(data.detail || "Conversion failed.");
       setArResult(data.path.replace(/\\/g, "/"));
       setArStatus("done");
-    } catch (err: any) {
-      alert(err.message || "Conversion failed.");
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Conversion failed.");
       setArStatus("idle");
     }
   };
@@ -79,7 +81,7 @@ export default function ToolsPage() {
     setTtsStatus("loading");
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/tools/tts`, {
+      const res = await apiFetch(`${API_BASE_URL}/api/tools/tts`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: ttsText, voice: ttsVoice })
@@ -88,8 +90,8 @@ export default function ToolsPage() {
       if (!res.ok) throw new Error(data.detail || "TTS generation failed.");
       setTtsResult(data.path.replace(/\\/g, "/"));
       setTtsStatus("done");
-    } catch (err: any) {
-      alert(err.message || "TTS generation failed.");
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "TTS generation failed.");
       setTtsStatus("idle");
     }
   };

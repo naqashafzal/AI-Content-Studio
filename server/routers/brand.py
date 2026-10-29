@@ -1,3 +1,4 @@
+from server.core.security import copy_upload
 from fastapi import APIRouter, UploadFile, File, HTTPException
 import os
 from config import load_config, save_config
@@ -15,9 +16,7 @@ async def upload_asset(type: str, file: UploadFile = File(...)):
     ext = ".png" if type == "logo" else ".mp4"
     file_path = os.path.join(ASSETS_DIR, f"{type}{ext}")
     
-    with open(file_path, "wb") as f:
-        content = await file.read()
-        f.write(content)
+    copy_upload(file.file, file_path)
         
     # Update config
     config = load_config()

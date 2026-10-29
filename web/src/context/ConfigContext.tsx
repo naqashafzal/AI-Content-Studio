@@ -1,12 +1,18 @@
 "use client";
 
-import { API_BASE_URL, WS_BASE_URL } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
+
+import { API_BASE_URL } from "@/lib/api";
+
+import { useRouter } from "next/navigation";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 
+import type { StudioConfig, ConfigValue } from "@/lib/config";
+
 interface ConfigContextType {
-  config: any;
-  updateConfig: (key: string, value: any) => void;
+  config: StudioConfig;
+  updateConfig: (key: string, value: ConfigValue) => void;
   saveConfig: () => Promise<void>;
   status: string;
 }
@@ -14,12 +20,20 @@ interface ConfigContextType {
 const ConfigContext = createContext<ConfigContextType | undefined>(undefined);
 
 export function ConfigProvider({ children }: { children: ReactNode }) {
-  const [config, setConfig] = useState<any>({});
+  const [config, setConfig] = useState<StudioConfig>({});
   const [status, setStatus] = useState("loading"); // loading, idle, saving, saved, error
+
+  const router = useRouter();
+  useEffect(() => {
+    const signIn = () => router.replace("/login");
+    window.addEventListener("studio:unauthorized", signIn);
+    return () => window.removeEventListener("studio:unauthorized", signIn);
+  }, [router]);
 
   // Load config on mount
   useEffect(() => {
-    fetch(`${API_BASE_URL}/api/config`)
+    if (window.location.pathname === "/login") return;
+    apiFetch(`${API_BASE_URL}/api/config`)
       .then(res => res.json())
       .then(data => {
         setConfig(data);
@@ -31,14 +45,14 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
       });
   }, []);
 
-  const updateConfig = (key: string, value: any) => {
-    setConfig((prev: any) => ({ ...prev, [key]: value }));
+  const updateConfig = (key: string, value: ConfigValue) => {
+    setConfig((prev: StudioConfig) => ({ ...prev, [key]: value }));
   };
 
   const saveConfig = async () => {
     setStatus("saving");
     try {
-      const res = await fetch(`${API_BASE_URL}/api/config`, {
+      const res = await apiFetch(`${API_BASE_URL}/api/config`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(config)

@@ -5,7 +5,7 @@ from config import load_config, save_config, mask_secret, is_masked_value, SENSI
 from fastapi.testclient import TestClient
 from server.main import app
 
-client = TestClient(app)
+client = TestClient(app, headers={"X-API-Key": "test-suite-token"})
 
 def test_secret_masking():
     # Long key

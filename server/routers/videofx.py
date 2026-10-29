@@ -1,3 +1,4 @@
+from server.core.security import DATA_DIR
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 import os
@@ -25,7 +26,7 @@ def run_videofx_task(job_id: str, req: VideoFXRequest):
         os.makedirs("videofx_outputs", exist_ok=True)
         output_path = os.path.join("videofx_outputs", f"{job_id}.mp4")
         
-        profile_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "core", "videofx_profile")
+        profile_path = str(DATA_DIR / "videofx_profile")
         client = VideoFXClient(profile_path)
         
         manager.broadcast(job_id, {"type": "log", "data": f"Injecting prompt: {req.prompt}"})
@@ -60,7 +61,7 @@ def stop_videofx_job(job_id: str):
 
 @router.post("/login")
 def start_login():
-    profile_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "core", "videofx_profile")
+    profile_path = str(DATA_DIR / "videofx_profile")
     client = VideoFXClient(profile_path)
     
     def safe_login():

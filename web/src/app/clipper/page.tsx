@@ -1,10 +1,12 @@
 "use client";
 
+import { apiFetch } from "@/lib/api";
+
 import { API_BASE_URL, WS_BASE_URL } from "@/lib/api";
 
 import { useState, useEffect, useRef } from "react";
-import { MonitorPlay, Scissors, Loader2, Play, Download, Settings2, ScissorsSquare, Share2, CheckCircle2, Circle, Edit2, Upload } from "lucide-react";
-import TimelineEditor from "@/components/TimelineEditor";
+import { MonitorPlay, Scissors, Loader2, Download, Settings2, ScissorsSquare, Share2, CheckCircle2, Circle, Edit2, Upload } from "lucide-react";
+import TimelineEditor, { type TimelineClipData } from "@/components/TimelineEditor";
 
 interface GeneratedClip {
   title: string;
@@ -33,7 +35,7 @@ export default function ClipperPage() {
   const [file, setFile] = useState<File | null>(null);
   
   // Phase 1 UI state
-  const [analyzedClips, setAnalyzedClips] = useState<any[]>([]);
+  const [analyzedClips, setAnalyzedClips] = useState<TimelineClipData[]>([]);
   const [videoPath, setVideoPath] = useState("");
   const [selectedClipIndices, setSelectedClipIndices] = useState<Set<number>>(new Set());
   const [editingClipIndex, setEditingClipIndex] = useState<number | null>(null);
@@ -78,13 +80,13 @@ export default function ClipperPage() {
           
           if (state.result) {
             try {
-              const res = JSON.parse(state.result);
+              const res: { type: "selection"; clips: TimelineClipData[]; video_path: string } | { type: "finished"; clips: GeneratedClip[] } = JSON.parse(state.result);
               if (res.type === "selection") {
                 setStatus("selection");
                 setAnalyzedClips(res.clips);
                 setVideoPath(res.video_path);
                 // auto-select all by default
-                setSelectedClipIndices(new Set(res.clips.map((_: any, i: number) => i)));
+                setSelectedClipIndices(new Set(res.clips.map((_, i) => i)));
               } else if (res.type === "finished") {
                 setStatus("completed");
                 setClips(res.clips);
@@ -129,7 +131,7 @@ export default function ClipperPage() {
     try {
       let res;
       if (inputType === "youtube") {
-        res = await fetch(`${API_BASE_URL}/api/clipper/analyze`, {
+        res = await apiFetch(`${API_BASE_URL}/api/clipper/analyze`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ 
@@ -148,7 +150,7 @@ export default function ClipperPage() {
         formData.append("max_duration", maxDuration.toString());
         formData.append("language", language);
 
-        res = await fetch(`${API_BASE_URL}/api/clipper/analyze_local`, {
+        res = await apiFetch(`${API_BASE_URL}/api/clipper/analyze_local`, {
           method: "POST",
           body: formData
         });
@@ -161,7 +163,7 @@ export default function ClipperPage() {
       } else {
         setJobId(data.job_id);
       }
-    } catch (err) {
+    } catch {
       alert("API Error");
       setStatus("idle");
     }
@@ -177,6 +179,7 @@ export default function ClipperPage() {
     
     try {
       const res = await fetch(`${API_BASE_URL}/api/clipper/render`, {
+      await apiFetch(`${API_BASE_URL}/api/clipper/render`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
@@ -190,7 +193,8 @@ export default function ClipperPage() {
         alert("Render failed to start: " + (data.detail || res.statusText));
         setStatus("selection");
       }
-    } catch (err) {
+    } catch {
+    } catch {
       alert("API Error");
       setStatus("selection");
     }
@@ -203,7 +207,7 @@ export default function ClipperPage() {
     setSelectedClipIndices(next);
   };
 
-  const handleSaveTimeline = (adjustedClip: any) => {
+  const handleSaveTimeline = (adjustedClip: TimelineClipData) => {
     if (editingClipIndex === null) return;
     const newAnalyzed = [...analyzedClips];
     newAnalyzed[editingClipIndex] = adjustedClip;
@@ -217,7 +221,7 @@ export default function ClipperPage() {
     
     setPubStatus("publishing");
     try {
-      const res = await fetch(`${API_BASE_URL}/api/publish/youtube`, {
+      const res = await apiFetch(`${API_BASE_URL}/api/publish/youtube`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
@@ -236,7 +240,7 @@ export default function ClipperPage() {
         alert("Successfully uploaded to YouTube!");
         setPublishModal(null);
       }
-    } catch (err) {
+    } catch {
       alert("API Error");
     } finally {
       setPubStatus("idle");

@@ -2,8 +2,18 @@ import os
 from sqlalchemy import create_engine, Column, Integer, String, Text, Boolean, DateTime, func
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-os.makedirs("workspace", exist_ok=True)
-DATABASE_URL = "sqlite:///./workspace/app.db"
+from server.core.security import DATA_DIR
+DATA_DIR.mkdir(mode=0o700, parents=True, exist_ok=True)
+# Preserve existing installations while keeping credentials outside media storage.
+legacy = "workspace/app.db"
+database_path = DATA_DIR / "app.db"
+if not os.getenv("STUDIO_DATA_DIR") and os.path.isfile(legacy) and not database_path.exists():
+    import sqlite3
+    with sqlite3.connect(legacy) as source, sqlite3.connect(database_path) as target:
+        source.backup(target)
+    os.chmod(database_path, 0o600)
+    os.unlink(legacy)
+DATABASE_URL = "sqlite:///" + str(database_path)
 
 # Create a robust SQLite engine
 engine = create_engine(
@@ -23,6 +33,19 @@ class OAuthToken(Base):
     expires_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+class OAuthState(Base):
+    __tablename__ = "oauth_states"
+    state_hash = Column(String, primary_key=True)
+    expires_at = Column(DateTime, nullable=False)
+
+class QueueTask(Base):
+    __tablename__ = "queue_tasks"
+    id = Column(String, primary_key=True)
+    job_id = Column(String, index=True, nullable=False)
+    function = Column(String, nullable=False)
+    arguments = Column(Text, nullable=False)
+    status = Column(String, default="queued", index=True)
 
 class Job(Base):
     __tablename__ = "jobs"
@@ -110,6 +133,7 @@ class ContentCampaign(Base):
 
 # Create all tables cleanly
 Base.metadata.create_all(bind=engine)
+os.chmod(database_path, 0o600)
 
 def get_db():
     db = SessionLocal()

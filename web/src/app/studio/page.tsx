@@ -1,10 +1,13 @@
 "use client";
 
+import { apiFetch } from "@/lib/api";
+
 import { useState, useEffect } from "react";
-import { Play, Square, Sparkles, CheckCircle2, AlertCircle, Loader2, Globe2, Music, Captions, ShieldCheck, Film, Settings, Zap, Ghost, Rocket, Landmark, ShoppingBag } from "lucide-react";
+import { Play, Square, CheckCircle2, Loader2, Film, Settings, Zap, Ghost, Rocket, Landmark, ShoppingBag } from "lucide-react";
 import { TabSelect } from "@/components/TabSelect";
 import { ToggleSwitch } from "@/components/ToggleSwitch";
 import { useConfig } from "@/context/ConfigContext";
+import type { StudioConfig } from "@/lib/config";
 import { API_BASE_URL, WS_BASE_URL, getMediaUrl } from "@/lib/api";
 import { Download } from "lucide-react";
 
@@ -26,31 +29,39 @@ const PIPELINE_STEPS = [
 ];
 
 export default function CreatorStudio() {
+  const { config, status } = useConfig();
+  if (status === "loading") {
+    return <div role="status" className="p-8 text-zinc-400">Loading saved Studio settings…</div>;
+  }
+  return <CreatorStudioForm initialConfig={config} />;
+}
+
+function CreatorStudioForm({ initialConfig }: { initialConfig: StudioConfig }) {
   const [topic, setTopic] = useState("");
   const [startStep, setStartStep] = useState(PIPELINE_STEPS[0]);
   const [quickPreset, setQuickPreset] = useState("Custom");
   
-  const [contentStyle, setContentStyle] = useState("Documentary");
+  const [contentStyle, setContentStyle] = useState(initialConfig.CONTENT_STYLE ?? "Documentary");
   const [style, setStyle] = useState("Cinematic Documentary");
-  const [audioEngine, setAudioEngine] = useState("Gemini API");
-  const [videoEngine, setVideoEngine] = useState("WaveSpeed AI");
-  const [voice, setVoice] = useState("Kore");
+  const [audioEngine, setAudioEngine] = useState(initialConfig.AUDIO_ENGINE ?? "Gemini API");
+  const [videoEngine, setVideoEngine] = useState(initialConfig.VIDEO_ENGINE ?? "WaveSpeed AI");
+  const [voice, setVoice] = useState(initialConfig.VOICE_NAME ?? "Kore");
   const [elevenVoice, setElevenVoice] = useState("Brian");
-  const [aspectRatio, setAspectRatio] = useState("16:9");
-  const [bgMode, setBgMode] = useState("AI Video");
-  const [scriptLength, setScriptLength] = useState("Medium (~5 minutes)");
+  const [aspectRatio, setAspectRatio] = useState(initialConfig.VIDEO_ASPECT_RATIO ?? "16:9");
+  const [bgMode, setBgMode] = useState(initialConfig.BG_MODE ?? "AI Video");
+  const [scriptLength, setScriptLength] = useState(initialConfig.SCRIPT_LENGTH ?? "Medium (~5 minutes)");
   
-  const [imageCount, setImageCount] = useState(8);
-  const [videoCount, setVideoCount] = useState(1);
+  const [imageCount] = useState(initialConfig.IMAGE_COUNT ?? 8);
+  const [videoCount] = useState(initialConfig.VIDEO_CLIP_COUNT ?? 1);
   
   const [omnichannel, setOmnichannel] = useState(false);
-  const [bgMusic, setBgMusic] = useState(true);
-  const [autoCaptions, setAutoCaptions] = useState(true);
-  const [factCheck, setFactCheck] = useState(false);
-  const [genThumbnail, setGenThumbnail] = useState(false);
-  const [genSeo, setGenSeo] = useState(false);
-  const [genTimestamps, setGenTimestamps] = useState(false);
-  const [genSnippets, setGenSnippets] = useState(false);
+  const [bgMusic, setBgMusic] = useState(initialConfig.ADD_MUSIC ?? true);
+  const [autoCaptions, setAutoCaptions] = useState(initialConfig.CAPTION_ENABLED ?? true);
+  const [factCheck] = useState(initialConfig.FACT_CHECK ?? false);
+  const [genThumbnail] = useState(initialConfig.GENERATE_THUMBNAIL ?? false);
+  const [genSeo, setGenSeo] = useState(initialConfig.GENERATE_METADATA ?? false);
+  const [genTimestamps] = useState(initialConfig.GENERATE_TIMESTAMPS ?? false);
+  const [genSnippets] = useState(initialConfig.GENERATE_SNIPPETS ?? false);
 
   const [status, setStatus] = useState("idle");
   const [jobId, setJobId] = useState("");
@@ -58,31 +69,6 @@ export default function CreatorStudio() {
   const [currentStep, setCurrentStep] = useState("Waiting to start...");
   const [logs, setLogs] = useState<string[]>([]);
   const [finalVideo, setFinalVideo] = useState("");
-
-  const { config, status: contextStatus } = useConfig();
-  const [hasInitialized, setHasInitialized] = useState(false);
-
-  useEffect(() => {
-    if (contextStatus === "idle" && Object.keys(config).length > 0 && !hasInitialized) {
-      setAudioEngine(config.AUDIO_ENGINE || "Gemini API");
-      setVideoEngine(config.VIDEO_ENGINE || "WaveSpeed AI");
-      setVoice(config.VOICE_NAME || "Kore");
-      setAspectRatio(config.VIDEO_ASPECT_RATIO || "16:9");
-      setBgMode(config.BG_MODE || "AI Video");
-      setScriptLength(config.SCRIPT_LENGTH || "Medium (~5 minutes)");
-      setImageCount(config.IMAGE_COUNT || 8);
-      setVideoCount(config.VIDEO_CLIP_COUNT || 1);
-      setBgMusic(config.ADD_MUSIC ?? true);
-      setAutoCaptions(config.CAPTION_ENABLED ?? true);
-      setFactCheck(config.FACT_CHECK ?? false);
-      setGenThumbnail(config.GENERATE_THUMBNAIL ?? false);
-      setGenSeo(config.GENERATE_METADATA ?? false);
-      setGenTimestamps(config.GENERATE_TIMESTAMPS ?? false);
-      setGenSnippets(config.GENERATE_SNIPPETS ?? false);
-      setContentStyle(config.CONTENT_STYLE || "Documentary");
-      setHasInitialized(true);
-    }
-  }, [config, contextStatus, hasInitialized]);
 
   const handlePreset = (preset: string) => {
     setQuickPreset(preset);
@@ -151,7 +137,7 @@ export default function CreatorStudio() {
         generate_snippets: genSnippets, script_length: scriptLength
       };
 
-      const res = await fetch(`${API_BASE_URL}/api/generate/quick`, {
+      const res = await apiFetch(`${API_BASE_URL}/api/generate/quick`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
@@ -159,7 +145,7 @@ export default function CreatorStudio() {
       const data = await res.json();
       setJobId(data.job_id);
       setStatus("running");
-    } catch (err) {
+    } catch {
       setStatus("error");
       setLogs(prev => [...prev, "Failed to connect to API."]);
     }
@@ -167,7 +153,7 @@ export default function CreatorStudio() {
 
   const handleCancel = async () => {
     if (jobId) {
-      await fetch(`${API_BASE_URL}/api/generate/cancel/${jobId}`, { method: "POST" });
+      await apiFetch(`${API_BASE_URL}/api/generate/cancel/${jobId}`, { method: "POST" });
     }
     setStatus("idle");
     setLogs(prev => [...prev, "Job cancelled by user."]);

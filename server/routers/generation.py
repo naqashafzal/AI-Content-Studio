@@ -307,34 +307,5 @@ def delete_project(project_id: str):
 
 @router.get("/media")
 def serve_media_file(path: str = Query(...)):
-    raw_path = path.strip()
-    # Prevent any traversal attempts upfront
-    if ".." in raw_path:
-        raise HTTPException(status_code=403, detail="Access denied: Path traversal is not permitted.")
-
-    clean_path = os.path.abspath(raw_path)
-    allowed_roots = [
-        os.path.abspath("workspace"),
-        os.path.abspath("outputs"),
-        os.path.abspath("agent_workspace"),
-        os.path.abspath("assets"),
-        os.path.abspath("videofx_outputs")
-    ]
-
-    def _is_within_allowed(candidate: str) -> bool:
-        return any(
-            candidate.startswith(root) and (len(candidate) == len(root) or candidate[len(root)] in (os.sep, '/'))
-            for root in allowed_roots
-        )
-
-    # Support workspace-relative paths (e.g. tools_output/file.mp4 -> workspace/tools_output/file.mp4)
-    if not _is_within_allowed(clean_path):
-        ws_candidate = os.path.abspath(os.path.join("workspace", raw_path.lstrip("/\\")))
-        if _is_within_allowed(ws_candidate) and os.path.isfile(ws_candidate):
-            clean_path = ws_candidate
-        else:
-            raise HTTPException(status_code=403, detail="Access denied: File outside permitted media workspace.")
-
-    if not os.path.exists(clean_path) or not os.path.isfile(clean_path):
-        raise HTTPException(status_code=404, detail="Media file not found.")
-    return FileResponse(clean_path)
+    from server.core.security import media_path
+    return FileResponse(media_path(path), headers={"X-Content-Type-Options": "nosniff"})

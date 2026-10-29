@@ -1,3 +1,4 @@
+from server.core.security import copy_upload
 import os
 import uuid
 import json
@@ -36,17 +37,18 @@ async def extract_style_from_reference(name: str = Form("Custom Reference Style"
         
     temp_dir = os.path.abspath("workspace/style_temp")
     os.makedirs(temp_dir, exist_ok=True)
-    temp_video_path = os.path.join(temp_dir, f"ref_{uuid.uuid4().hex[:8]}_{file.filename}")
+    temp_video_path = os.path.join(temp_dir, f"ref_{uuid.uuid4().hex}.mp4")
 
     try:
-        with open(temp_video_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+        copy_upload(file.file, temp_video_path)
 
         profile = analyze_reference_video(temp_video_path, name=name)
         return {
             "message": "Reference video analyzed and style profile extracted.",
             "profile": profile.model_dump()
         }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to analyze reference video: {str(e)}")
     finally:
@@ -71,5 +73,7 @@ def import_style_profile(profile_data: Dict[str, Any]):
         profile.id = str(uuid.uuid4()) # generate new unique ID on import
         saved = save_style_profile(profile)
         return {"message": "Style profile imported successfully.", "profile": saved.model_dump()}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Invalid profile schema: {str(e)}")

@@ -1,12 +1,29 @@
 "use client";
 
-import { API_BASE_URL, WS_BASE_URL } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
+
+import { API_BASE_URL } from "@/lib/api";
 
 import { useState, useEffect } from "react";
 import { Plus, Play, Pause, Trash2, Bot, Clock, Sparkles } from "lucide-react";
 
+interface Campaign {
+  id: string;
+  name: string;
+  niche: string;
+  preset: string;
+  active: boolean;
+  next_run: number;
+}
+
+async function loadCampaigns(): Promise<Campaign[]> {
+  const response = await apiFetch(`${API_BASE_URL}/api/campaigns`);
+  if (!response.ok) throw new Error("Failed to load campaigns");
+  return (await response.json()).campaigns || [];
+}
+
 export default function CampaignsPage() {
-  const [campaigns, setCampaigns] = useState<any[]>([]);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   
   // New Campaign Form
   const [name, setName] = useState("");
@@ -16,26 +33,27 @@ export default function CampaignsPage() {
 
   const fetchCampaigns = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/campaigns`);
-      const data = await res.json();
-      setCampaigns(data.campaigns || []);
+      setCampaigns(await loadCampaigns());
     } catch (e) {
       console.error(e);
     }
   };
 
   useEffect(() => {
-    fetchCampaigns();
-    // Refresh every 30 seconds to update 'last run' times
-    const int = setInterval(fetchCampaigns, 30000);
-    return () => clearInterval(int);
+    let active = true;
+    const refresh = () => loadCampaigns()
+      .then(campaigns => { if (active) setCampaigns(campaigns); })
+      .catch(error => console.error(error));
+    void refresh();
+    const interval = setInterval(refresh, 30_000);
+    return () => { active = false; clearInterval(interval); };
   }, []);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !niche) return;
     try {
-      await fetch(`${API_BASE_URL}/api/campaigns`, {
+      await apiFetch(`${API_BASE_URL}/api/campaigns`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, niche, preset, frequency_hours: parseFloat(frequency) })
@@ -43,19 +61,19 @@ export default function CampaignsPage() {
       setName("");
       setNiche("");
       fetchCampaigns();
-    } catch (e) {
+    } catch {
       alert("Failed to create campaign");
     }
   };
 
   const handleToggle = async (cid: string) => {
-    await fetch(`${API_BASE_URL}/api/campaigns/${cid}/toggle`, { method: "POST" });
+    await apiFetch(`${API_BASE_URL}/api/campaigns/${cid}/toggle`, { method: "POST" });
     fetchCampaigns();
   };
 
   const handleDelete = async (cid: string) => {
     if (!confirm("Are you sure?")) return;
-    await fetch(`${API_BASE_URL}/api/campaigns/${cid}`, { method: "DELETE" });
+    await apiFetch(`${API_BASE_URL}/api/campaigns/${cid}`, { method: "DELETE" });
     fetchCampaigns();
   };
 

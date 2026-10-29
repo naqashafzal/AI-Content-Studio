@@ -6,7 +6,7 @@
   [![Patreon](https://img.shields.io/badge/Support_on-Patreon-f96854?style=for-the-badge&logo=patreon)](https://www.patreon.com/c/naqashafzal)
   [![Instagram](https://img.shields.io/badge/Follow_on-Instagram-E4405F?style=for-the-badge&logo=instagram)](https://www.instagram.com/naqashafzal/)
   ![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)
-  ![Tests](https://img.shields.io/badge/Tests-19%2F19%20Passing-brightgreen?style=for-the-badge)
+  ![Tests](https://img.shields.io/badge/Tests-38%2F38%20Passing-brightgreen?style=for-the-badge)
 </div>
 
 ---
@@ -82,7 +82,7 @@ Built with a modern, high-performance tech stack designed for speed and scalabil
 - **Real-time Engine:** WebSockets for live agent logs, progress updates, and timeline syncing
 
 ### Backend (API Engine)
-- **Server:** FastAPI (Python 3.10+) & Uvicorn
+- **Server:** FastAPI (Python 3.12) & Uvicorn
 - **Database / Queue:** SQLite + SQLAlchemy ORM with stage checkpoints
 - **Video Processing:** FFmpeg (multimodal slicing, cropping, loudnorm mastering, caption burning)
 - **Downloading:** `yt-dlp` (bypasses YouTube blocks and downloads source media)
@@ -93,12 +93,18 @@ Built with a modern, high-performance tech stack designed for speed and scalabil
 
 ---
 
+## Production deployment and security
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for authenticated setup, HTTPS proxy configuration,
+legacy data migration, persistent storage, OAuth, job recovery, and release checks.
+The Studio uses one shared administrator account and one backend worker process.
+
 ## 🚀 Getting Started
 
 ### Prerequisites
 Before running the application, ensure you have the following installed on your system:
-1. **Python 3.10+** (Make sure to check "Add Python to PATH" during installation)
-2. **Node.js (v18+)** & npm
+1. **Python 3.12** (Make sure to check "Add Python to PATH" during installation)
+2. **Node.js (v22+)** & npm
 3. **FFmpeg** (Must be installed and added to your system's PATH variable)
    - *Windows via winget:* `winget install Gyan.FFmpeg`
    - *macOS via homebrew:* `brew install ffmpeg`
@@ -132,7 +138,7 @@ Before running the application, ensure you have the following installed on your 
 3. **Setup the Next.js Frontend:**
    ```bash
    cd web
-   npm install
+   npm ci
    cd ..
    ```
 
@@ -145,7 +151,7 @@ Simply run or double-click **`start.bat`**:
 ```cmd
 start.bat
 ```
-The automated launcher will verify Python 3.10+, Node.js 18+, and FFmpeg, initialize storage folders, activate `.venv`, check dependencies, launch both server consoles, and automatically open your browser to `http://localhost:3000`!
+The automated launcher will verify Python 3.12, Node.js 18+, and FFmpeg, initialize storage folders, activate `.venv`, check dependencies, launch both server consoles, and automatically open your browser to `http://localhost:3000`!
 
 #### 🛠️ Manual Launch (All Platforms)
 You can run both servers manually in separate terminal windows:
@@ -175,7 +181,7 @@ The repository includes a comprehensive automated test suite covering job queues
 ```bash
 # Run the full test suite
 pytest tests/
-# 19 passed
+# 38 passed
 ```
 
 ---

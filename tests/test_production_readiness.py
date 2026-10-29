@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 from server.main import app
 from config import load_config, save_config
 
-client = TestClient(app)
+client = TestClient(app, headers={"X-API-Key": "test-suite-token"})
 
 def test_style_routes_both_singular_and_plural():
     """Verifies that both /api/style and /api/styles work without 404."""
@@ -82,14 +82,14 @@ def test_explainer_local_file_path_traversal_blocked():
 def test_tools_media_workspace_resolution():
     """Verifies media files inside workspace/tools_output can be served via /api/generate/media."""
     os.makedirs("workspace/tools_output", exist_ok=True)
-    dummy_file = "workspace/tools_output/test_sample.txt"
+    dummy_file = "workspace/tools_output/test_sample.mp4"
     with open(dummy_file, "w", encoding="utf-8") as f:
         f.write("media ok")
     try:
         res1 = client.get(f"/api/generate/media?path={dummy_file}")
         assert res1.status_code == 200
-        # Also verify relative tools_output/test_sample.txt resolves safely inside workspace
-        res2 = client.get("/api/generate/media?path=tools_output/test_sample.txt")
+        # Also verify relative tools_output/test_sample.mp4 resolves safely inside workspace
+        res2 = client.get("/api/generate/media?path=tools_output/test_sample.mp4")
         assert res2.status_code == 200
     finally:
         if os.path.exists(dummy_file):

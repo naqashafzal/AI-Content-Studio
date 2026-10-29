@@ -1,9 +1,6 @@
 "use client";
 
-import { API_BASE_URL, WS_BASE_URL } from "@/lib/api";
-
-import { useState, useEffect } from "react";
-import { Save, Settings, Key, Cpu, Sparkles, Loader2 } from "lucide-react";
+import { Save, Key, Cpu, Sparkles, Loader2 } from "lucide-react";
 import { TabSelect } from "@/components/TabSelect";
 import { useConfig } from "@/context/ConfigContext";
 

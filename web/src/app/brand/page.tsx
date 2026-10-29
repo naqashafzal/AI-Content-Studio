@@ -1,11 +1,9 @@
 "use client";
 
+import { apiFetch } from "@/lib/api";
+
 import { useState, useEffect } from "react";
-import { 
-  Palette, Upload, Sparkles, Film, Sliders, Download, Trash2, Plus, 
-  CheckCircle2, Layers, Type, Volume2, Camera, Save, FileText, Loader2,
-  RefreshCw, Check, ArrowRight
-} from "lucide-react";
+import { Palette, Upload, Sparkles, Film, Trash2, Layers, Type, Volume2, Camera, Save, Loader2, Check } from "lucide-react";
 import { API_BASE_URL } from "@/lib/api";
 
 interface CaptionStyle {
@@ -44,6 +42,12 @@ interface StyleProfile {
   audio: AudioStyle;
 }
 
+async function loadStyles(): Promise<StyleProfile[]> {
+  const response = await apiFetch(`${API_BASE_URL}/api/styles`);
+  if (!response.ok) throw new Error("Failed to load styles");
+  return response.json();
+}
+
 export default function BrandStudioPage() {
   const [activeTab, setActiveTab] = useState<"brand" | "styles">("styles");
   
@@ -71,14 +75,11 @@ export default function BrandStudioPage() {
 
   const fetchStyles = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/styles`);
-      if (res.ok) {
-        const data = await res.json();
-        setStyles(data);
-        if (data.length > 0 && !selectedStyleId) {
-          setSelectedStyleId(data[0].id);
-          setEditingProfile(data[0]);
-        }
+      const data = await loadStyles();
+      setStyles(data);
+      if (data.length > 0 && !selectedStyleId) {
+        setSelectedStyleId(data[0].id);
+        setEditingProfile(data[0]);
       }
     } catch (e) {
       console.error("Failed to load styles", e);
@@ -86,11 +87,19 @@ export default function BrandStudioPage() {
   };
 
   useEffect(() => {
-    fetchStyles();
-    fetch(`${API_BASE_URL}/api/config`)
+    let active = true;
+    loadStyles().then(data => {
+      if (!active) return;
+      setStyles(data);
+      if (data.length > 0) {
+        setSelectedStyleId(data[0].id);
+        setEditingProfile(data[0]);
+      }
+    }).catch(error => console.error("Failed to load styles", error));
+    apiFetch(`${API_BASE_URL}/api/config`)
       .then(res => (res.ok ? res.json() : null))
       .then(cfg => {
-        if (!cfg) return;
+        if (!active || !cfg) return;
         if (cfg.CHANNEL_NAME) setChannelName(cfg.CHANNEL_NAME);
         if (cfg.BRAND_PRIMARY_COLOR) setPrimaryColor(cfg.BRAND_PRIMARY_COLOR);
         if (cfg.BRAND_SECONDARY_COLOR) setSecondaryColor(cfg.BRAND_SECONDARY_COLOR);
@@ -101,6 +110,7 @@ export default function BrandStudioPage() {
         if (cfg.INTRO_VIDEO_PATH) setIntroFilename(cfg.INTRO_VIDEO_PATH.split(/[\\/]/).pop() || "intro.mp4");
       })
       .catch(e => console.error("Failed to load brand config:", e));
+    return () => { active = false; };
   }, []);
 
   const handleSelectStyle = (profile: StyleProfile) => {
@@ -120,7 +130,7 @@ export default function BrandStudioPage() {
     formData.append("name", refStyleName || "Extracted Reference Style");
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/styles/analyze-reference`, {
+      const res = await apiFetch(`${API_BASE_URL}/api/styles/analyze-reference`, {
         method: "POST",
         body: formData
       });
@@ -134,7 +144,7 @@ export default function BrandStudioPage() {
       } else {
         alert("Reference analysis failed: " + (data.detail || "Unknown error"));
       }
-    } catch (err) {
+    } catch {
       alert("API request failed.");
     } finally {
       setIsAnalyzing(false);
@@ -145,7 +155,7 @@ export default function BrandStudioPage() {
     if (!editingProfile) return;
     setSavingStyle(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/styles`, {
+      const res = await apiFetch(`${API_BASE_URL}/api/styles`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(editingProfile)
@@ -156,7 +166,7 @@ export default function BrandStudioPage() {
       } else {
         alert("Failed to save style profile.");
       }
-    } catch (e) {
+    } catch {
       alert("API Error");
     } finally {
       setSavingStyle(false);
@@ -171,7 +181,7 @@ export default function BrandStudioPage() {
     if (!confirm("Are you sure you want to delete this custom style profile?")) return;
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/styles/${id}`, {
+      const res = await apiFetch(`${API_BASE_URL}/api/styles/${id}`, {
         method: "DELETE"
       });
       if (res.ok) {
@@ -179,7 +189,7 @@ export default function BrandStudioPage() {
       } else {
         alert("Failed to delete style profile.");
       }
-    } catch (e) {
+    } catch {
       alert("Error deleting style profile.");
     }
   };
@@ -192,7 +202,7 @@ export default function BrandStudioPage() {
     const formData = new FormData();
     formData.append("file", file);
     try {
-      await fetch(`${API_BASE_URL}/api/brand/upload?type=${assetType}`, {
+      await apiFetch(`${API_BASE_URL}/api/brand/upload?type=${assetType}`, {
         method: "POST",
         body: formData
       });
@@ -203,7 +213,7 @@ export default function BrandStudioPage() {
 
   const handleSaveBrandKit = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/config`, {
+      const res = await apiFetch(`${API_BASE_URL}/api/config`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -221,7 +231,7 @@ export default function BrandStudioPage() {
       } else {
         alert("Failed to save Brand Identity Kit.");
       }
-    } catch (e) {
+    } catch {
       alert("Error connecting to server while saving Brand Identity Kit.");
     }
   };

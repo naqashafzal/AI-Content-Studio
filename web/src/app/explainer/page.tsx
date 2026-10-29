@@ -1,9 +1,11 @@
 "use client";
 
+import { apiFetch } from "@/lib/api";
+
 import { API_BASE_URL, WS_BASE_URL } from "@/lib/api";
 
 import { useState, useEffect, useRef } from "react";
-import { Film, Upload, Loader2, Play, Download, Wand2, Settings2, Clapperboard } from "lucide-react";
+import { Upload, Loader2, Download, Wand2, Settings2, Clapperboard } from "lucide-react";
 
 export default function ExplainerModePage() {
   const [url, setUrl] = useState("");
@@ -94,7 +96,7 @@ export default function ExplainerModePage() {
     setLogs([{ message: "Starting Movie Explainer...", time: new Date().toLocaleTimeString() }]);
     
     try {
-      const res = await fetch(`${API_BASE_URL}/api/explainer/process`, {
+      const res = await apiFetch(`${API_BASE_URL}/api/explainer/process`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
@@ -114,7 +116,7 @@ export default function ExplainerModePage() {
       } else {
         setJobId(data.job_id);
       }
-    } catch (err) {
+    } catch {
       alert("API Error");
       setStatus("idle");
     }

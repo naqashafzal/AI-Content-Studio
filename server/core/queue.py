@@ -6,7 +6,8 @@ from typing import Dict, Any, List, Optional
 import contextvars
 import datetime
 import asyncio
-from fastapi import WebSocket
+from fastapi import WebSocket, WebSocketDisconnect
+import os
 import json
 from concurrent.futures import ThreadPoolExecutor
 
@@ -22,10 +23,127 @@ current_job_id = contextvars.ContextVar("current_job_id", default=None)
 # We limit to 2 concurrent generation tasks to prevent resource exhaustion
 # ---------------------------------------------------------------------------
 worker_pool = ThreadPoolExecutor(max_workers=2)
+_submission_lock = threading.RLock()
+
+def _encode_argument(value):
+    from pydantic import BaseModel
+    if isinstance(value, BaseModel):
+        return {"model": value.__class__.__module__ + ":" + value.__class__.__name__, "value": value.model_dump(mode="json")}
+    return {"value": value}
+
+def _decode_argument(value):
+    if "model" in value:
+        import importlib
+        module, name = value["model"].split(":")
+        if module not in TASK_MODULES:
+            raise ValueError("Unknown task argument type")
+        return getattr(importlib.import_module(module), name).model_validate(value["value"])
+    return value["value"]
+
+TASK_MODULES = {"server.routers." + name for name in ("generation", "clipper", "director", "explainer", "videofx")}
+
+def _run_persisted_task(task_id):
+    from server.core.database import QueueTask
+    import importlib
+    with SessionLocal() as db:
+        task = db.get(QueueTask, task_id)
+        if not task or task.status != "queued":
+            return
+        job_id = task.job_id
+        job = db.get(DBJob, job_id)
+        if not job or job.status == "cancelled":
+            task.status = "cancelled"
+            db.commit()
+            return
+        claimed = db.query(QueueTask).filter(QueueTask.id == task_id, QueueTask.status == "queued").update({"status": "running"})
+        db.commit()
+        if not claimed:
+            return
+        function, arguments = task.function, json.loads(task.arguments)
+    try:
+        get_job(job_id)  # Rehydrate cancellation state after a restart.
+        update_job(job_id, status="running")
+        module, name = function.split(":")
+        if module not in TASK_MODULES or not name.startswith("run_"):
+            raise ValueError("Unknown task")
+        args = [_decode_argument(value) for value in arguments["args"]]
+        kwargs = {key: _decode_argument(value) for key, value in arguments["kwargs"].items()}
+        getattr(importlib.import_module(module), name)(*args, **kwargs)
+        status = "completed"
+    except Exception as exc:
+        logging.exception("Job execution failed")
+        update_job(job_id, status="failed", error=str(exc))
+        status = "failed"
+    finally:
+        current_job_id.set(None)
+    with SessionLocal() as db:
+        task = db.get(QueueTask, task_id)
+        task.status = status
+        db.commit()
+
+def _submit_to_queue(func, *args, **kwargs):
+    """Commit executable work before acknowledging it to the caller."""
+    from server.core.database import QueueTask
+    from fastapi import HTTPException
+    if func.__module__ not in TASK_MODULES or not func.__name__.startswith("run_"):
+        raise ValueError("Task is not registered")
+    job_id = args[0]
+    task_id = str(uuid.uuid4())
+    arguments = json.dumps({"args": [_encode_argument(value) for value in args],
+                            "kwargs": {key: _encode_argument(value) for key, value in kwargs.items()}})
+    with SessionLocal() as db:
+        if db.query(QueueTask).filter(QueueTask.status.in_(["queued", "running"])).count() >= 100:
+            raise HTTPException(429, "Job queue is full; retry later")
+        if db.query(QueueTask).filter(QueueTask.job_id == job_id, QueueTask.status.in_(["queued", "running"])).first():
+            raise HTTPException(409, "This job already has queued or running work")
+        db.add(QueueTask(id=task_id, job_id=job_id, function=func.__module__ + ":" + func.__name__, arguments=arguments, status="queued"))
+        db.commit()
+    update_job(job_id, status="queued")
+    return worker_pool.submit(_run_persisted_task, task_id)
 
 def submit_to_queue(func, *args, **kwargs):
-    """Submits a job to the background worker pool."""
-    return worker_pool.submit(func, *args, **kwargs)
+    with _submission_lock:
+        return _submit_to_queue(func, *args, **kwargs)
+
+def recover_pending_tasks():
+    """Resume queued work; interrupted work needs explicit retry to avoid duplicate paid calls."""
+    from server.core.database import QueueTask
+    _JOBS.clear()
+    recover_interrupted_jobs()
+    with SessionLocal() as db:
+        interrupted_ids = [task.job_id for task in db.query(QueueTask).filter(QueueTask.status == "running").all()]
+        if interrupted_ids:
+            db.query(DBJob).filter(DBJob.id.in_(interrupted_ids), DBJob.status != "cancelled").update(
+                {"status": "interrupted", "error": "Execution interrupted by restart; explicit retry is available."}, synchronize_session=False)
+        db.query(QueueTask).filter(QueueTask.status == "running").update({"status": "interrupted"})
+        db.commit()
+        pending = [task.id for task in db.query(QueueTask).filter(QueueTask.status == "queued").all()]
+    for task_id in pending:
+        worker_pool.submit(_run_persisted_task, task_id)
+
+def _retry_interrupted_task(job_id):
+    from server.core.database import QueueTask
+    from fastapi import HTTPException
+    from sqlalchemy import literal_column
+    with SessionLocal() as db:
+        job = db.get(DBJob, job_id)
+        if not job or job.status not in ("interrupted", "failed"):
+            raise HTTPException(409, "Only failed or interrupted jobs can be retried")
+        if db.query(QueueTask).filter(QueueTask.job_id == job_id, QueueTask.status.in_(["queued", "running"])).first():
+            raise HTTPException(409, "Job is already active")
+        task = db.query(QueueTask).filter(QueueTask.job_id == job_id).order_by(literal_column("queue_tasks.rowid").desc()).first()
+        if not task:
+            raise HTTPException(404, "No saved task is available for this job")
+        task.status = "queued"
+        task_id = task.id
+        job.status = "queued"
+        db.commit()
+    _JOBS.pop(job_id, None)
+    worker_pool.submit(_run_persisted_task, task_id)
+
+def retry_interrupted_task(job_id):
+    with _submission_lock:
+        return _retry_interrupted_task(job_id)
 
 # ---------------------------------------------------------------------------
 # WebSocket Connection Manager
@@ -36,6 +154,16 @@ class ConnectionManager:
         self.loop = None 
 
     async def connect(self, websocket: WebSocket, job_id: str):
+        from server.core.security import authenticated
+        if not authenticated(websocket):
+            await websocket.close(code=4401)
+            raise WebSocketDisconnect(code=4401)
+        origin = websocket.headers.get("origin")
+        allowed = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000").split(",")
+        from urllib.parse import urlsplit
+        if origin and origin not in allowed and urlsplit(origin).netloc != websocket.headers.get("host"):
+            await websocket.close(code=4403)
+            raise WebSocketDisconnect(code=4403)
         await websocket.accept()
         if job_id not in self.active_connections:
             self.active_connections[job_id] = []
@@ -130,6 +258,8 @@ def create_job(topic: str, job_type: str = "pipeline", params: Optional[Dict[str
     except Exception as e:
         logging.error(f"Failed to persist new job {job_id} to database: {e}")
         db.rollback()
+        _JOBS.pop(job_id, None)
+        raise
     finally:
         db.close()
         
@@ -383,5 +513,12 @@ def list_jobs(limit: int = 50) -> List[Dict[str, Any]]:
     finally:
         db.close()
 
-# Automatically run recovery when module loads
-recover_interrupted_jobs()
+
+
+def start_workers():
+    global worker_pool
+    if worker_pool._shutdown:
+        worker_pool = ThreadPoolExecutor(max_workers=2)
+
+def shutdown_workers():
+    worker_pool.shutdown(wait=True)

@@ -1,8 +1,10 @@
 "use client";
 
+import { apiFetch } from "@/lib/api";
+
 import { Video, Clock, TrendingUp, Sparkles, Plus, Play, Scissors, Film, ArrowRight, Activity, CalendarDays, Palette, Bot } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { API_BASE_URL, getMediaUrl } from "@/lib/api";
 
 interface RecentProject {
@@ -14,8 +16,18 @@ interface RecentProject {
   video_path?: string | null;
 }
 
+function getGreeting() {
+  const hour = new Date().getHours();
+  return hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+}
+
+function subscribeToClock(onChange: () => void) {
+  const interval = setInterval(onChange, 60_000);
+  return () => clearInterval(interval);
+}
+
 export default function Dashboard() {
-  const [greeting, setGreeting] = useState("Welcome back");
+  const greeting = useSyncExternalStore(subscribeToClock, getGreeting, () => "Welcome back");
   const [stats, setStats] = useState({
     total_generated: 0,
     total_projects: 0,
@@ -28,12 +40,7 @@ export default function Dashboard() {
   const [previewVideo, setPreviewVideo] = useState<string | null>(null);
 
   useEffect(() => {
-    const hour = new Date().getHours();
-    if (hour < 12) setGreeting("Good morning");
-    else if (hour < 18) setGreeting("Good afternoon");
-    else setGreeting("Good evening");
-
-    fetch(`${API_BASE_URL}/api/generate/stats`)
+    apiFetch(`${API_BASE_URL}/api/generate/stats`)
       .then(res => (res.ok ? res.json() : null))
       .then(data => {
         if (data) {
