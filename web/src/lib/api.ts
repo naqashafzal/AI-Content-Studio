@@ -13,5 +13,9 @@ export async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Pr
     window.dispatchEvent(new Event("studio:unauthorized"));
     throw new Error("Authentication required");
   }
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => "");
+    throw new Error(`API error ${response.status} (${response.statusText}): ${errorText}`);
+  }
   return response;
 }

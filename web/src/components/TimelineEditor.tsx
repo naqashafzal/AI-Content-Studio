@@ -24,6 +24,14 @@ export interface TimelineClipData {
   score?: number;
   hook_score?: number;
   retention_score?: number;
+  category?: string;
+  payoff_score?: number;
+  hook_text?: string;
+  judge_note?: string;
+  score_breakdown?: Record<string, number | null | undefined>;
+  speech_metrics?: { wps?: number };
+  source?: string;
+  self_contained?: boolean;
   broll?: Array<{ start_offset: number; end_offset: number; subject: string }>;
   transcript_segments?: TranscriptSegment[];
   kept_segments?: TranscriptSegment[];

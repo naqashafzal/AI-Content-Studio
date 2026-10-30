@@ -1,11 +1,9 @@
 "use client";
 
 import { apiFetch } from "@/lib/api";
-
-import { API_BASE_URL } from "@/lib/api";
-
+import { API_BASE_URL, getMediaUrl } from "@/lib/api";
 import { useEffect, useState } from "react";
-import { Film, FileText, Download, Trash2, Calendar, Loader2, RefreshCw } from "lucide-react";
+import { Film, Download, Trash2, Loader2, RefreshCw, Play, Clock, AlertTriangle, CheckCircle, ArrowRight } from "lucide-react";
 
 interface ProjectVideo {
   title: string;
@@ -41,6 +39,7 @@ export default function HistoryPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [activeMedia, setActiveMedia] = useState<string | null>(null);
 
   const fetchHistory = async () => {
     setLoading(true);
@@ -60,13 +59,15 @@ export default function HistoryPage() {
       if (!active) return;
       setProjects(data.projects);
       setJobs(data.jobs);
-    }).catch(error => console.error("Failed to load history", error))
-      .finally(() => { if (active) setLoading(false); });
+      setLoading(false);
+    }).catch(() => {
+      if (active) setLoading(false);
+    });
     return () => { active = false; };
   }, []);
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this project? This cannot be undone.")) return;
+    if (!confirm("Are you sure you want to permanently delete this project?")) return;
     
     setDeletingId(id);
     try {
@@ -105,114 +106,178 @@ export default function HistoryPage() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6 animate-in fade-in duration-500 pb-20">
-      <div className="mb-8 flex justify-between items-end">
+    <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in duration-500 pb-20">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/5 pb-6">
         <div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">History & Projects</h1>
-          <p className="text-zinc-400 mt-1">View, play, and download your previously generated content.</p>
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#66fcf1]/10 text-[#66fcf1] border border-[#66fcf1]/20 text-[10px] font-black uppercase tracking-wider mb-2">
+            <Film className="h-3 w-3" /> Creative Archive
+          </div>
+          <h1 className="text-3xl font-black text-white tracking-tight">Project History & Media</h1>
+          <p className="text-zinc-400 text-sm mt-1">Review, play, stream, and export your previously generated video assets.</p>
         </div>
+
         <button 
           onClick={fetchHistory}
           disabled={loading}
-          className="p-3 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-all"
-          title="Refresh"
+          className="btn-secondary !w-auto px-4 py-2.5 text-xs font-bold self-start sm:self-auto"
+          title="Refresh Archive"
         >
-          <RefreshCw className={`h-5 w-5 ${loading ? "animate-spin text-[#66fcf1]" : ""}`} />
+          <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin text-[#66fcf1]" : ""}`} />
+          Refresh
         </button>
       </div>
 
-      {jobs.length > 0 && <section className="glass-card p-6 space-y-3">
-        <h2 className="text-xl font-bold">Recent jobs</h2>
-        <p className="text-sm text-zinc-400">Queued jobs resume after restart. Retrying interrupted work may repeat provider calls and incur charges.</p>
-        {jobs.slice(0, 10).map(job => <div key={job.id} className="flex items-center justify-between gap-4 border-b border-white/10 py-3">
-          <div><p>{job.topic}</p><span className="text-xs text-zinc-400">{job.status}</span></div>
-          {["failed", "interrupted"].includes(job.status) && <button disabled={retrying === job.id} onClick={() => retryJob(job.id)} className="modern-input">
-            {retrying === job.id ? "Queuing…" : "Retry job"}
-          </button>}
-        </div>)}
-      </section>}
+      {/* Background Queue Tasks Banner if any */}
+      {jobs.length > 0 && (
+        <section className="glass-card p-6 space-y-4 border-amber-500/20 bg-amber-500/[0.02]">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <Clock className="h-5 w-5 text-amber-400" />
+              <h2 className="text-sm font-extrabold text-white tracking-wide uppercase">Recent Task Queue</h2>
+            </div>
+            <span className="text-xs text-zinc-400 font-medium">Automatic recovery enabled</span>
+          </div>
 
+          <div className="space-y-2">
+            {jobs.slice(0, 5).map(job => (
+              <div key={job.id} className="flex items-center justify-between gap-4 bg-black/40 p-3 rounded-xl border border-white/5">
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-white truncate">{job.topic}</p>
+                  <span className={`text-[10px] font-extrabold uppercase tracking-wider inline-flex items-center gap-1.5 ${
+                    job.status === "completed" ? "text-emerald-400" :
+                    job.status === "failed" ? "text-rose-400" : "text-amber-400"
+                  }`}>
+                    <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                    {job.status}
+                  </span>
+                </div>
+                {["failed", "interrupted"].includes(job.status) && (
+                  <button 
+                    disabled={retrying === job.id} 
+                    onClick={() => retryJob(job.id)} 
+                    className="px-3 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 rounded-lg text-xs font-bold transition-all"
+                  >
+                    {retrying === job.id ? "Queuing…" : "Retry Job"}
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Projects Grid */}
       {loading && projects.length === 0 ? (
-        <div className="glass-card p-20 flex flex-col items-center justify-center gap-4 text-zinc-400">
+        <div className="glass-card p-24 flex flex-col items-center justify-center gap-4 text-zinc-400">
           <Loader2 className="h-10 w-10 animate-spin text-[#66fcf1]" />
-          <p>Loading your creative history...</p>
+          <p className="text-sm font-medium">Loading your creative history...</p>
         </div>
       ) : projects.length === 0 ? (
-        <div className="glass-card p-20 flex flex-col items-center justify-center gap-4 text-zinc-500">
-          <Film className="h-16 w-16 opacity-20" />
-          <p className="text-lg">No projects found. Go make something awesome!</p>
+        <div className="glass-card p-24 text-center space-y-4">
+          <Film className="h-12 w-12 text-zinc-600 mx-auto" />
+          <h3 className="text-lg font-bold text-white">No Rendered Projects Found</h3>
+          <p className="text-zinc-400 text-sm max-w-sm mx-auto">
+            You haven't generated any videos yet. Launch Quick Creator or Director Mode to produce your first content.
+          </p>
         </div>
       ) : (
-        <div className="space-y-12">
-          {projects.map((project) => (
-            <div key={project.id} className="flex flex-col gap-4">
-              <div className="flex items-center justify-between border-b border-white/10 pb-2">
-                <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-md ${project.type === "podcast" ? "bg-purple-500/20 text-purple-400" : "bg-[#66fcf1]/20 text-[#66fcf1]"}`}>
-                    <Film className="h-5 w-5" />
-                  </div>
-                  <h2 className="text-lg font-bold text-white">
-                    {project.type === "podcast" ? "AI Podcast: " : "Magic Clipper: "}
-                    <span className="font-normal text-zinc-300">{project.id.replace("clipper_", "")}</span>
-                  </h2>
-                </div>
-                <div className="flex items-center gap-4">
-                  <span className="text-xs text-zinc-500 flex items-center gap-1">
-                    <Calendar className="h-3 w-3" /> {formatDate(project.created_at)}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {projects.map((proj) => (
+            <div key={proj.id} className="glass-card glass-card-hover p-6 flex flex-col justify-between space-y-4">
+              <div className="space-y-2">
+                <div className="flex items-start justify-between gap-3">
+                  <span className="px-2.5 py-0.5 rounded-md bg-[#66fcf1]/10 text-[#66fcf1] border border-[#66fcf1]/20 text-[10px] font-black uppercase tracking-wider">
+                    {proj.type}
                   </span>
-                  <button 
-                    onClick={() => handleDelete(project.id)}
-                    disabled={deletingId === project.id}
-                    className="p-2 text-red-400/50 hover:text-red-400 hover:bg-red-400/10 rounded-md transition-all"
-                    title="Delete Project"
-                  >
-                    {deletingId === project.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                  </button>
+                  <span className="text-[11px] text-zinc-400 font-medium">
+                    {formatDate(proj.created_at)}
+                  </span>
                 </div>
+                
+                <h3 className="text-base font-bold text-white line-clamp-2">
+                  {proj.videos[0]?.title || `Project #${proj.id.slice(0, 8)}`}
+                </h3>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {project.videos.map((vid, idx) => (
-                  <div key={idx} className="flex flex-col gap-3 group">
-                    <div className={`bg-black rounded-xl border border-white/10 overflow-hidden relative shadow-lg ${project.type === "podcast" ? "aspect-video" : "aspect-[9/16]"}`}>
-                      <video 
-                        src={`${API_BASE_URL}/api/generate/media?path=${encodeURIComponent(vid.path.replace(/\\/g, '/'))}`} 
-                        controls 
-                        className="w-full h-full object-cover"
-                      />
+              {/* Videos in Project */}
+              <div className="space-y-2 pt-3 border-t border-white/5">
+                {proj.videos.map((vid, idx) => {
+                  const mediaUrl = getMediaUrl(vid.path);
+                  return (
+                    <div key={idx} className="flex items-center justify-between gap-2 p-2.5 bg-black/40 rounded-xl border border-white/5">
+                      <span className="text-xs text-zinc-300 font-medium truncate">
+                        {vid.title || `Video Clip ${idx + 1}`}
+                      </span>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          onClick={() => setActiveMedia(mediaUrl)}
+                          className="p-1.5 rounded-lg bg-white/5 hover:bg-[#66fcf1]/20 hover:text-[#66fcf1] text-zinc-300 transition-colors"
+                          title="Play Video"
+                        >
+                          <Play className="h-3.5 w-3.5 fill-current" />
+                        </button>
+                        <a
+                          href={mediaUrl}
+                          download
+                          target="_blank"
+                          rel="noreferrer"
+                          className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white transition-colors"
+                          title="Download Video"
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                        </a>
+                      </div>
                     </div>
-                    <div className="px-1">
-                      <p className="text-sm font-bold text-white line-clamp-1" title={vid.title}>
-                        {vid.title}
-                      </p>
-                      <a 
-                        href={`${API_BASE_URL}/api/generate/media?path=${encodeURIComponent(vid.path.replace(/\\/g, '/'))}`} 
-                        download 
-                        className="mt-3 py-2 w-full bg-white/5 hover:bg-white/10 text-white rounded-lg flex items-center justify-center gap-2 text-xs font-bold transition-all border border-white/10"
-                      >
-                        <Download className="h-4 w-4" /> Download Video
-                      </a>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
-              
-              {project.scripts.length > 0 && (
-                <div className="flex flex-wrap gap-3 mt-2">
-                  {project.scripts.map((script, idx) => (
-                    <a 
-                      key={idx}
-                      href={`${API_BASE_URL}/api/generate/media?path=${encodeURIComponent(script.replace(/\\/g, '/'))}`} 
-                      download
-                      className="py-2 px-4 bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 rounded-lg flex items-center gap-2 text-sm font-medium transition-all"
-                    >
-                      <FileText className="h-4 w-4" /> Download Script
-                    </a>
-                  ))}
-                </div>
-              )}
+
+              <div className="flex items-center justify-between pt-2">
+                <span className="text-[11px] text-zinc-400 font-semibold">
+                  {proj.videos.length} video {proj.videos.length === 1 ? "asset" : "assets"}
+                </span>
+
+                <button
+                  onClick={() => handleDelete(proj.id)}
+                  disabled={deletingId === proj.id}
+                  className="p-2 text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors"
+                  title="Delete Project"
+                >
+                  {deletingId === proj.id ? (
+                    <Loader2 className="h-4 w-4 animate-spin text-rose-400" />
+                  ) : (
+                    <Trash2 className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Video Modal Player */}
+      {activeMedia && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-in fade-in"
+          onClick={() => setActiveMedia(null)}
+        >
+          <div 
+            className="max-w-4xl w-full bg-[#0c1017] border border-white/15 rounded-2xl overflow-hidden shadow-2xl p-4"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-3 px-2">
+              <span className="text-xs font-bold text-white uppercase tracking-wider">Video Playback</span>
+              <button 
+                onClick={() => setActiveMedia(null)}
+                className="text-xs text-zinc-400 hover:text-white px-2 py-1 rounded-md bg-white/5"
+              >
+                Close ✕
+              </button>
+            </div>
+            <video src={activeMedia} controls autoPlay className="w-full rounded-xl max-h-[75vh] bg-black" />
+          </div>
         </div>
       )}
     </div>

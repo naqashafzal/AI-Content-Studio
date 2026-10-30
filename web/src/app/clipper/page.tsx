@@ -80,7 +80,7 @@ export default function ClipperPage() {
           
           if (state.result) {
             try {
-              const res: { type: "selection"; clips: TimelineClipData[]; video_path: string } | { type: "finished"; clips: GeneratedClip[] } = JSON.parse(state.result);
+              const res: { type: "selection"; clips: TimelineClipData[]; video_path: string } | { type: "finished"; clips: GeneratedClip[]; failed?: any[] } = JSON.parse(state.result);
               if (res.type === "selection") {
                 setStatus("selection");
                 setAnalyzedClips(res.clips);
@@ -178,8 +178,7 @@ export default function ClipperPage() {
     const selected = analyzedClips.filter((_, i) => selectedClipIndices.has(i));
     
     try {
-      const res = await fetch(`${API_BASE_URL}/api/clipper/render`, {
-      await apiFetch(`${API_BASE_URL}/api/clipper/render`, {
+      const res = await apiFetch(`/api/clipper/render`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
@@ -193,7 +192,6 @@ export default function ClipperPage() {
         alert("Render failed to start: " + (data.detail || res.statusText));
         setStatus("selection");
       }
-    } catch {
     } catch {
       alert("API Error");
       setStatus("selection");

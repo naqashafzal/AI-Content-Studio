@@ -3,6 +3,7 @@
   <p><strong>The Most Intelligent Open-Source Autonomous AI Video, Podcast & Content Creation Platform</strong></p>
   
   [![YouTube](https://img.shields.io/badge/Subscribe_on-YouTube-FF0000?style=for-the-badge&logo=youtube)](https://www.youtube.com/@naqashai)
+  [![Buy Me A Coffee](https://img.shields.io/badge/Buy_Me_A_Coffee-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/naqash)
   [![Patreon](https://img.shields.io/badge/Support_on-Patreon-f96854?style=for-the-badge&logo=patreon)](https://www.patreon.com/c/naqashafzal)
   [![Instagram](https://img.shields.io/badge/Follow_on-Instagram-E4405F?style=for-the-badge&logo=instagram)](https://www.instagram.com/naqashafzal/)
   ![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)
@@ -13,7 +14,7 @@
 
 **AI Content Studio Next-Gen (v2.0)** transforms video generation from a rigid script-to-video pipeline into an autonomous creative production system. Equipped with a supervisory multi-agent director, multimodal viral clipping, computer-vision style cloning, broadcast loudness mastering, and a nonlinear transcript ripple-editor, it handles your entire creative production workflow from research to export.
 
-If you love this project and want to support its ongoing development, please consider helping out on **[Patreon](https://www.patreon.com/c/naqashafzal)** or follow the journey on **[Instagram](https://www.instagram.com/naqashafzal/)**!
+If you love this project and want to support its ongoing development, please consider **[Buying Me a Coffee](https://buymeacoffee.com/naqash)**, helping out on **[Patreon](https://www.patreon.com/c/naqashafzal)**, or following the journey on **[Instagram](https://www.instagram.com/naqashafzal/)**!
 
 ---
 
@@ -190,6 +191,7 @@ pytest tests/
 
 Building and maintaining this open-source project takes a lot of time and effort! If this tool has helped you grow your channels, automate your workflows, or make money, please consider supporting me:
 
+- ☕ **Buy Me a Coffee:** [buymeacoffee.com/naqash](https://buymeacoffee.com/naqash)
 - 💖 **Support on Patreon:** [patreon.com/c/naqashafzal](https://www.patreon.com/c/naqashafzal)
 - 📸 **Follow on Instagram:** [@naqashafzal](https://www.instagram.com/naqashafzal/)
 - 📺 **Subscribe on YouTube:** [@naqashai](https://www.youtube.com/@naqashai)
