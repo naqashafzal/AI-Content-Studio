@@ -17,7 +17,9 @@ import {
   MonitorPlay, 
   Clapperboard,
   Activity,
-  Zap
+  Zap,
+  Coffee,
+  Heart
 } from "lucide-react";
 
 export function Sidebar() {
@@ -78,7 +80,7 @@ export function Sidebar() {
         </Link>
 
         {/* Navigation Categories */}
-        <div className="space-y-6 overflow-y-auto max-h-[calc(100vh-210px)] pr-1 scrollbar-hide">
+        <div className="space-y-6 overflow-y-auto max-h-[calc(100vh-270px)] pr-1 scrollbar-hide">
           {navGroups.map((group, gIdx) => (
             <div key={gIdx} className="space-y-1.5">
               <div className="px-3 text-[10px] font-extrabold uppercase tracking-[0.18em] text-zinc-500">
@@ -122,21 +124,45 @@ export function Sidebar() {
         </div>
       </div>
 
-      {/* Live System Status Widget */}
-      <div className="pt-4 border-t border-white/5">
-        <div className="flex items-center justify-between bg-black/40 p-3 rounded-xl border border-white/5 backdrop-blur-md">
+      {/* Bottom Actions: Buy Me a Coffee & System Status */}
+      <div className="pt-3 border-t border-white/5 space-y-2.5">
+        {/* Buy Me A Coffee Button */}
+        <a 
+          href="https://buymeacoffee.com/naqash" 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="group flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-gradient-to-r from-[#FFDD00]/15 via-[#FFDD00]/10 to-transparent border border-[#FFDD00]/30 hover:border-[#FFDD00]/60 transition-all duration-300 shadow-[0_0_15px_rgba(255,221,0,0.08)] hover:shadow-[0_0_20px_rgba(255,221,0,0.2)]"
+        >
           <div className="flex items-center gap-2.5">
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#66fcf1] opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#66fcf1]"></span>
-            </span>
+            <div className="p-1.5 rounded-lg bg-[#FFDD00] text-black shadow-sm group-hover:rotate-6 transition-transform">
+              <Coffee className="h-4 w-4 stroke-[2.5]" />
+            </div>
             <div>
-              <span className="text-[11px] font-bold text-white block">Engine Ready</span>
-              <span className="text-[9px] font-semibold text-zinc-500 block">FastAPI :8008 • Next 16</span>
+              <span className="text-xs font-black text-white group-hover:text-[#FFDD00] transition-colors block">
+                Buy Me a Coffee
+              </span>
+              <span className="text-[9px] font-semibold text-zinc-400 block">
+                Support Open-Source
+              </span>
             </div>
           </div>
-          <div className="p-1.5 rounded-lg bg-white/5 text-zinc-400">
-            <Zap className="h-3.5 w-3.5 text-[#66fcf1]" />
+          <Heart className="h-3.5 w-3.5 text-[#FFDD00] fill-[#FFDD00]/30 group-hover:scale-125 transition-transform" />
+        </a>
+
+        {/* Live System Status Widget */}
+        <div className="flex items-center justify-between bg-black/40 p-2.5 rounded-xl border border-white/5 backdrop-blur-md">
+          <div className="flex items-center gap-2">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#66fcf1] opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-[#66fcf1]"></span>
+            </span>
+            <div>
+              <span className="text-[10px] font-bold text-white block leading-tight">Engine Ready</span>
+              <span className="text-[8.5px] font-semibold text-zinc-500 block leading-tight">Port 8008 • Next 16</span>
+            </div>
+          </div>
+          <div className="p-1 rounded-md bg-white/5 text-zinc-400">
+            <Zap className="h-3 w-3 text-[#66fcf1]" />
           </div>
         </div>
       </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { Save, Key, Cpu, Sparkles, Loader2, CheckCircle, ShieldCheck } from "lucide-react";
+import { Save, Key, Cpu, Sparkles, Loader2, CheckCircle, ShieldCheck, Coffee, Heart } from "lucide-react";
 import { TabSelect } from "@/components/TabSelect";
 import { useConfig } from "@/context/ConfigContext";
 
@@ -178,6 +178,34 @@ export default function SettingsPage() {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Support & Community Card */}
+        <div className="glass-card p-6 md:p-8 border-[#FFDD00]/25 bg-gradient-to-br from-[#FFDD00]/5 via-black/40 to-transparent flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="p-3 rounded-2xl bg-[#FFDD00] text-black shadow-[0_0_15px_rgba(255,221,0,0.3)]">
+              <Coffee className="h-6 w-6 stroke-[2.5]" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                Support the Creator & Open-Source Studio
+                <Heart className="h-4 w-4 text-[#FFDD00] fill-[#FFDD00]" />
+              </h3>
+              <p className="text-xs text-zinc-400 mt-0.5">
+                If AI Content Studio accelerates your workflows and generates views, consider buying me a coffee to support maintenance!
+              </p>
+            </div>
+          </div>
+
+          <a 
+            href="https://buymeacoffee.com/naqash" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="px-5 py-2.5 rounded-xl bg-[#FFDD00] hover:bg-[#ffe338] text-black text-xs font-black tracking-wide shadow-[0_0_15px_rgba(255,221,0,0.25)] transition-all flex items-center gap-2 shrink-0"
+          >
+            <Coffee className="h-4 w-4 stroke-[2.5]" />
+            buymeacoffee.com/naqash
+          </a>
         </div>
 
         {/* Floating Bottom Bar */}
