@@ -166,15 +166,15 @@ export default function SettingsPage() {
               </div>
               <div className="space-y-1">
                 <label className="block text-[11px] font-semibold text-zinc-400">Image Model</label>
-                <input type="text" value={config.WAVESPEED_IMAGE_MODEL || ""} onChange={e => updateConfig("WAVESPEED_IMAGE_MODEL", e.target.value)} className="modern-input" placeholder="black-forest-labs/flux-1.1-pro-ultra" />
+                <input type="text" value={config.WAVESPEED_IMAGE_MODEL || ""} onChange={e => updateConfig("WAVESPEED_IMAGE_MODEL", e.target.value)} className="modern-input" placeholder="bytedance/seedream-v5.5" />
               </div>
               <div className="space-y-1">
                 <label className="block text-[11px] font-semibold text-zinc-400">Video Model</label>
-                <input type="text" value={config.WAVESPEED_VIDEO_MODEL || ""} onChange={e => updateConfig("WAVESPEED_VIDEO_MODEL", e.target.value)} className="modern-input" placeholder="wavespeed-ai/ltx-2.3-text-to-video" />
+                <input type="text" value={config.WAVESPEED_VIDEO_MODEL || ""} onChange={e => updateConfig("WAVESPEED_VIDEO_MODEL", e.target.value)} className="modern-input" placeholder="alibaba/wan-3.0/text-to-video" />
               </div>
               <div className="space-y-1">
                 <label className="block text-[11px] font-semibold text-zinc-400">Audio/Voice Model</label>
-                <input type="text" value={config.WAVESPEED_AUDIO_MODEL || ""} onChange={e => updateConfig("WAVESPEED_AUDIO_MODEL", e.target.value)} className="modern-input" placeholder="elevenlabs/text-to-speech" />
+                <input type="text" value={config.WAVESPEED_AUDIO_MODEL || ""} onChange={e => updateConfig("WAVESPEED_AUDIO_MODEL", e.target.value)} className="modern-input" placeholder="elevenlabs/multilingual-v2" />
               </div>
             </div>
           </div>

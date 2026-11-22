@@ -24,6 +24,13 @@ SENSITIVE_KEYS = {
     "API_AUTH_TOKEN"
 }
 
+# WaveSpeed model ids that earlier versions saved as defaults and that are no longer available.
+STALE_WAVESPEED_DEFAULTS = {
+    "WAVESPEED_IMAGE_MODEL": "black-forest-labs/flux-1.1-pro-ultra",
+    "WAVESPEED_VIDEO_MODEL": "wavespeed-ai/ltx-2.3-text-to-video",
+    "WAVESPEED_AUDIO_MODEL": "elevenlabs/text-to-speech",
+}
+
 def mask_secret(value: str) -> str:
     """Masks secret values to prevent exposure while allowing recognition."""
     if not value or not isinstance(value, str):
@@ -58,9 +65,9 @@ def load_config(masked: bool = False):
         "GEMINI_API_KEY": "",
         "WAVESPEED_API_KEY": "",
         "WAVESPEED_AI_KEY": "",
-        "WAVESPEED_IMAGE_MODEL": "black-forest-labs/flux-1.1-pro-ultra",
-        "WAVESPEED_VIDEO_MODEL": "wavespeed-ai/ltx-2.3-text-to-video",
-        "WAVESPEED_AUDIO_MODEL": "elevenlabs/text-to-speech",
+        "WAVESPEED_IMAGE_MODEL": "bytedance/seedream-v5.5",
+        "WAVESPEED_VIDEO_MODEL": "alibaba/wan-3.0/text-to-video",
+        "WAVESPEED_AUDIO_MODEL": "elevenlabs/multilingual-v2",
         "NEWS_API_KEY": "",
         "PIXABAY_API_KEY": "",
         "VIDEO_ENGINE": "WaveSpeed AI",
@@ -124,6 +131,12 @@ def load_config(masked: bool = False):
     for key, value in default_config.items():
         if key not in config_data:
             config_data[key] = value
+            config_updated = True
+
+    # Replace stale WaveSpeed defaults saved by earlier versions; custom values are kept.
+    for key, stale_value in STALE_WAVESPEED_DEFAULTS.items():
+        if config_data.get(key) == stale_value:
+            config_data[key] = default_config[key]
             config_updated = True
 
     # Support Environment Variables for sensitive keys if not set in config

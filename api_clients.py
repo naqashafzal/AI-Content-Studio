@@ -210,7 +210,7 @@ class GoogleClient:
             headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
             
             # Using the proper OpenAI-compatible Chat Completions API as per WaveSpeed docs
-            submit_url = "https://api.wavespeed.ai/v1/chat/completions"
+            submit_url = "https://llm.wavespeed.ai/v1/chat/completions"
             payload = {
                 "model": model_id,
                 "messages": [{"role": "user", "content": prompt}],
@@ -741,8 +741,8 @@ class WaveSpeedClient:
                 url = outputs[0] if isinstance(outputs, list) else outputs.get("url", str(outputs))
                 with open(output_path, "wb") as f: f.write(requests.get(url).content)
                 logging.info(f"Asset successfully saved to {output_path}"); return
-            elif status == "failed":
-                raise RuntimeError(f"WaveSpeed Model task failed: {poll_response.json()['data'].get('error')}")
+            elif status in ("failed", "cancelled", "timeout", "deleted"):
+                raise RuntimeError(f"WaveSpeed Model task {status}: {poll_response.json()['data'].get('error')}")
             else:
                 logging.info(f"Task status is '{status}'. Yielding and Waiting...")
                 time.sleep(10)
@@ -775,21 +775,21 @@ class WaveSpeedClient:
         if not self.api_key: raise ValueError("WaveSpeed AI key is missing.")
         headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
         api_url = WAVESPEED_BASE_ENDPOINT.format(model_id)
-        payload = {"prompt": prompt, "format": "png", "aspect_ratio": "16:9"}
+        payload = {"prompt": prompt, "output_format": "png", "aspect_ratio": "16:9"}
         logging.info(f"Sending image task to WaveSpeed via {model_id}...")
         initial_response = requests.post(api_url, headers=headers, json=payload, timeout=120)
         initial_response.raise_for_status()
         req_id = initial_response.json().get("data", {}).get("id")
         self._poll_and_download(req_id, output_path, timeout=600)
 
-    def generate_speech(self, text: str, voice: str, output_path: str, model_id: str = "elevenlabs/text-to-speech"):
+    def generate_speech(self, text: str, voice: str, output_path: str, model_id: str = "elevenlabs/multilingual-v2"):
         return self.text_to_speech(model_id=model_id, text=text, output_path=output_path, voice=voice)
 
     def text_to_speech(self, model_id: str, text: str, output_path: str, voice: str = "Brian"):
         if not self.api_key: raise ValueError("WaveSpeed AI key is missing.")
         headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
         api_url = WAVESPEED_BASE_ENDPOINT.format(model_id)
-        payload = {"text": text, "voice": voice}
+        payload = {"text": text, "voice_id": voice}
         logging.info(f"Sending text-to-speech task to WaveSpeed via {model_id}...")
         initial_response = requests.post(api_url, headers=headers, json=payload, timeout=120)
         initial_response.raise_for_status()
