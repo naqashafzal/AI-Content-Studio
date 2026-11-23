@@ -189,7 +189,7 @@ class ImageGenAgent(BaseAgent):
         images_dir = os.path.join(output_dir, "images")
         os.makedirs(images_dir, exist_ok=True)
         
-        model_id = self.config.get("WAVESPEED_IMAGE_MODEL", "stabilityai/stable-diffusion-xl-base-1.0")
+        model_id = self.config.get("WAVESPEED_IMAGE_MODEL", "bytedance/seedream-v5.5")
         
         self.log("Dispatching image generation tasks concurrently...")
         image_paths_dict = {}

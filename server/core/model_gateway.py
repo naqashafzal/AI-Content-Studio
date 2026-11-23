@@ -147,7 +147,7 @@ class ModelGateway:
             "gemini": GeminiProvider(gemini_key, model_name=self.config.get("GEMINI_MODEL", "gemini-2.5-flash")),
             "wavespeed": OpenAICompatibleProvider(
                 api_key=wavespeed_key,
-                base_url="https://api.wavespeed.ai/v1",
+                base_url="https://llm.wavespeed.ai/v1",
                 model_name=self.config.get("WAVESPEED_TEXT_MODEL", "meta-llama/llama-3.3-70b-instruct"),
                 provider_label="WaveSpeed LLM"
             ),

@@ -122,7 +122,7 @@ def generate_tts(req: TTSRequest):
             filename = f"tts_{uuid.uuid4().hex}.mp3"
             out_path = os.path.join(TOOLS_DIR, filename)
             tts_client = WaveSpeedClient(ws_key)
-            audio_model = config.get("WAVESPEED_AUDIO_MODEL", "elevenlabs/text-to-speech")
+            audio_model = config.get("WAVESPEED_AUDIO_MODEL", "elevenlabs/multilingual-v2")
             tts_client.generate_speech(req.text, req.voice, out_path, model_id=audio_model)
         else:
             raise ValueError("No TTS API key configured. Please set GEMINI_API_KEY or WAVESPEED_API_KEY in Settings.")

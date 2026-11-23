@@ -174,7 +174,7 @@ Here is the transcript:
             if not os.path.exists(tts_path):
                 if self.audio_engine == "WaveSpeed AI" and self.wavespeed_client:
                     self.wavespeed_client.text_to_speech(
-                        self.config.get("WAVESPEED_AUDIO_MODEL", "elevenlabs/text-to-speech"), 
+                        self.config.get("WAVESPEED_AUDIO_MODEL", "elevenlabs/multilingual-v2"), 
                         clean_text, 
                         tts_path, 
                         voice=self.voice
