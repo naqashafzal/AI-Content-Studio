@@ -139,6 +139,11 @@ def load_config(masked: bool = False):
             config_data[key] = default_config[key]
             config_updated = True
 
+    # Save before the environment fallback below, so environment-only secrets are not written to disk.
+    if config_updated:
+        logging.info("Configuration updated with new default values. Saving.")
+        save_config(config_data)
+
     # Support Environment Variables for sensitive keys if not set in config
     for key in SENSITIVE_KEYS:
         env_val = os.getenv(key)
@@ -150,10 +155,6 @@ def load_config(masked: bool = False):
     if ws_key:
         config_data["WAVESPEED_API_KEY"] = ws_key
         config_data["WAVESPEED_AI_KEY"] = ws_key
-
-    if config_updated:
-        logging.info("Configuration updated with new default values. Saving.")
-        save_config(config_data)
 
     if masked:
         masked_data = dict(config_data)

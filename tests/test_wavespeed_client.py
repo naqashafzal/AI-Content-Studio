@@ -84,3 +84,21 @@ def test_wavespeed_text_engine_uses_llm_endpoint():
 
     assert mock_post.call_args.args[0] == "https://llm.wavespeed.ai/v1/chat/completions"
     assert mock_post.call_args.kwargs["json"]["model"] == "meta-llama/llama-3.3-70b-instruct"
+
+
+def test_migration_save_does_not_persist_environment_secrets(tmp_path, monkeypatch):
+    """Rewriting stale defaults must not write secrets that only come from the environment."""
+    cfg_file = tmp_path / "config.json"
+    cfg_file.write_text(json.dumps({"WAVESPEED_IMAGE_MODEL": "black-forest-labs/flux-1.1-pro-ultra"}), encoding="utf-8")
+    monkeypatch.setattr(config, "CONFIG_FILE", str(cfg_file))
+    monkeypatch.setenv("WAVESPEED_API_KEY", "env-only-key")
+    monkeypatch.delenv("WAVESPEED_AI_KEY", raising=False)
+    saved = []
+    monkeypatch.setattr(config, "save_config", lambda data, config_path=None: saved.append(dict(data)))
+
+    loaded = config.load_config()
+
+    assert loaded["WAVESPEED_API_KEY"] == "env-only-key"
+    assert saved and saved[0]["WAVESPEED_IMAGE_MODEL"] == "bytedance/seedream-v5.5"
+    assert not saved[0].get("WAVESPEED_API_KEY")
+    assert not saved[0].get("WAVESPEED_AI_KEY")
